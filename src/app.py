@@ -5,103 +5,180 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-
+import plotly.express as px
+from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QFileDialog, QTableView, QTabWidget, QLabel,
     QPlainTextEdit, QLineEdit, QComboBox, QGroupBox, QFormLayout,
-    QMessageBox, QHeaderView, QTextEdit
+    QMessageBox, QHeaderView, QTextEdit, QDockWidget, QTreeWidget,
+    QTreeWidgetItem, QToolBar, QStatusBar, QFrame
 )
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, QUrl, QSize
+from PySide6.QtGui import QAction, QIcon
 
 # Internal imports
 from .models import PandasModel
 from .utils import detect_encoding_parallel
 from .worker import GenericWorker
+from .engine import DataEngine
+from .session import SessionManager
+from .viz_manager import VizManager
 
 class DataExplorerApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("BigData Explorer Pro V2 - Enterprise Edition (Async)")
-        self.resize(1300, 900)
+        self.setWindowTitle("Datamixer Enterprise - BigData Intelligence Hub")
+        self.resize(1400, 950)
         
+        # Enterprise Data Store
         self.df = pd.DataFrame()
         self.variables = {"df": self.df}
-        self.current_var_name = "df"
-        self.workers = [] # Keep references to active workers
+        self.workers = []
         
         self.init_ui()
+        self.init_menu_and_toolbar()
+        self.status_label.setText("Enterprise Edition 로딩 완료 - 실시간 분석 대기 중")
 
     def init_ui(self):
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        self.main_layout = QVBoxLayout(central_widget)
-
-        self.tabs = QTabWidget()
-        self.main_layout.addWidget(self.tabs)
-
-        # Tabs setup
-        self.data_tab = QWidget()
-        self.setup_data_tab()
-        self.tabs.addTab(self.data_tab, "데이터 관리")
-
-        self.ops_tab = QWidget()
-        self.setup_ops_tab()
-        self.tabs.addTab(self.ops_tab, "실무 데이터 조작")
-
-        self.viz_tab = QWidget()
-        self.setup_viz_tab()
-        self.tabs.addTab(self.viz_tab, "데이터 시각화")
-
-        self.cli_tab = QWidget()
-        self.setup_cli_tab(self.cli_tab)
-        self.tabs.addTab(self.cli_tab, "CLI 콘솔")
-
-        # Bottom Bar
-        bottom_layout = QHBoxLayout()
-        self.status_label = QLabel("준비 완료")
-        bottom_layout.addWidget(self.status_label)
-        bottom_layout.addStretch()
+        # Allow docking anywhere
+        self.setDockNestingEnabled(True)
         
-        license_label = QLabel("이 프로그램에는 네이버에서 제공한 나눔글꼴이 적용되어 있습니다.")
-        license_label.setStyleSheet("color: gray; font-size: 9pt;")
-        bottom_layout.addWidget(license_label)
-        self.main_layout.addLayout(bottom_layout)
-
-    def setup_data_tab(self):
-        layout = QVBoxLayout(self.data_tab)
-        toolbar_layout = QHBoxLayout()
-        self.btn_load = QPushButton("데이터 불러오기 (CSV/Excel)")
-        self.btn_load.clicked.connect(self.load_data_async)
-        toolbar_layout.addWidget(self.btn_load)
+        # 1. Central Widget (Tabs)
+        self.central_tabs = QTabWidget()
+        self.setCentralWidget(self.central_tabs)
         
-        self.btn_info = QPushButton("데이터 정보 보기")
-        self.btn_info.clicked.connect(self.show_data_info)
-        toolbar_layout.addWidget(self.btn_info)
-        toolbar_layout.addStretch()
-        layout.addLayout(toolbar_layout)
-
+        # 1-1. View Tab (Table)
+        self.view_tab = QWidget()
+        view_layout = QVBoxLayout(self.view_tab)
         self.table_view = QTableView()
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.table_view.setStyleSheet("""
-            QTableView {
-                selection-background-color: rgba(135, 206, 235, 100);
-                selection-color: #333333;
-                gridline-color: #f0f0f0;
-            }
-            QTableView::item:selected {
-                background-color: rgba(135, 206, 235, 100);
-            }
-        """)
-        layout.addWidget(self.table_view)
+        self.table_view.setAlternatingRowColors(True)
+        self.table_view.setStyleSheet("QTableView { selection-background-color: rgba(135, 206, 235, 100); }")
+        view_layout.addWidget(self.table_view)
+        self.central_tabs.addTab(self.view_tab, "데이터 시트")
+        
+        # 1-2. Visualizer Tab (Plotly)
+        self.viz_tab = QWidget()
+        viz_layout = QVBoxLayout(self.viz_tab)
+        self.browser = QWebEngineView()
+        viz_layout.addWidget(self.browser)
+        self.central_tabs.addTab(self.viz_tab, "인터렉티브 시각화")
+        
+        # 2. Left Dock: Explorer
+        self.explorer_dock = QDockWidget("데이터 탐색기", self)
+        self.explorer_tree = QTreeWidget()
+        self.explorer_tree.setHeaderLabels(["변수명", "데이터 형태"])
+        self.explorer_tree.itemClicked.connect(self.on_variable_clicked)
+        self.explorer_dock.setWidget(self.explorer_tree)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.explorer_dock)
+        
+        # 3. Bottom Dock: Console
+        self.console_dock = QDockWidget("명령 콘솔 (CLI)", self)
+        self.setup_cli_tab()
+        self.console_dock.setWidget(self.cli_container)
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.console_dock)
+        
+        # 4. Right Dock: Info & Ops
+        self.ops_dock = QDockWidget("고급 필터링 및 통계", self)
+        self.setup_ops_panel()
+        self.ops_dock.setWidget(self.ops_container)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.ops_dock)
+        
+        # 5. Bottom Status Bar
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_label = QLabel("준비")
+        self.status_bar.addWidget(self.status_label)
 
+    def init_menu_and_toolbar(self):
+        # Menu
+        menubar = self.menuBar()
+        file_menu = menubar.addMenu("파일 (&F)")
+        
+        load_action = QAction("데이터 로드 (CSV/Excel)", self)
+        load_action.triggered.connect(self.load_data_async)
+        file_menu.addAction(load_action)
+        
+        save_proj_action = QAction("프로젝트 저장 (.dmx)", self)
+        save_proj_action.triggered.connect(self.save_project)
+        file_menu.addAction(save_proj_action)
+        
+        load_proj_action = QAction("프로젝트 불러오기 (.dmx)", self)
+        load_proj_action.triggered.connect(self.load_project)
+        file_menu.addAction(load_proj_action)
+        
+        file_menu.addSeparator()
+        exit_action = QAction("종료", self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+        
+        # Toolbar
+        toolbar = QToolBar("기본 툴바")
+        self.addToolBar(toolbar)
+        toolbar.addAction(load_action)
+        toolbar.addAction(save_proj_action)
+
+    def setup_ops_panel(self):
+        self.ops_container = QWidget()
+        layout = QVBoxLayout(self.ops_container)
+        
+        # Plot Settings (Moved to Dock for professionalism)
+        viz_group = QGroupBox("시각화 엔진 설정")
+        viz_form = QFormLayout(viz_group)
+        self.combo_plot_type = QComboBox()
+        self.combo_plot_type.addItems(["히스토그램", "산점도", "박스 플롯", "히트맵", "선 그래프"])
+        viz_form.addRow("형식:", self.combo_plot_type)
+        self.combo_x = QComboBox()
+        self.combo_y = QComboBox()
+        viz_form.addRow("X축:", self.combo_x)
+        viz_form.addRow("Y축:", self.combo_y)
+        self.btn_plot = QPushButton("인터렉티브 생성")
+        self.btn_plot.clicked.connect(self.generate_interactive_plot)
+        viz_form.addRow(self.btn_plot)
+        layout.addWidget(viz_group)
+        
+        # loc/query moved here
+        ops_group = QGroupBox("고속 데이터 정제 (Engine)")
+        ops_form = QFormLayout(ops_group)
+        self.input_loc_rows = QLineEdit(":")
+        self.input_loc_cols = QLineEdit(":")
+        ops_form.addRow("loc (rows):", self.input_loc_rows)
+        ops_form.addRow("loc (cols):", self.input_loc_cols)
+        self.input_query = QLineEdit()
+        ops_form.addRow("Query:", self.input_query)
+        self.input_new_var = QLineEdit("df_new")
+        ops_form.addRow("저장 변수:", self.input_new_var)
+        btn_apply = QPushButton("엔진 연산 실행 (Async)")
+        btn_apply.clicked.connect(self.run_engine_ops)
+        ops_form.addRow(btn_apply)
+        layout.addWidget(ops_group)
+        layout.addStretch()
+
+    def setup_cli_tab(self):
+        self.cli_container = QWidget()
+        layout = QVBoxLayout(self.cli_container)
+        self.cli_output = QTextEdit()
+        self.cli_output.setReadOnly(True)
+        self.cli_output.setStyleSheet("font-family: 'Consolas', monospace;")
+        layout.addWidget(self.cli_output)
+        
+        input_layout = QHBoxLayout()
+        self.cli_input = QLineEdit()
+        self.cli_input.setPlaceholderText("명령어 입력... (예: self.df.describe())")
+        self.cli_input.setStyleSheet("font-family: 'Consolas', monospace;")
+        self.cli_input.returnPressed.connect(self.execute_cli)
+        self.btn_exec = QPushButton("실행")
+        self.btn_exec.clicked.connect(self.execute_cli)
+        input_layout.addWidget(self.cli_input)
+        input_layout.addWidget(self.btn_exec)
+        layout.addLayout(input_layout)
+
+    # --- Async Infrastructure ---
     def start_worker(self, func, *args, on_success=None, on_error=None, on_status=None, **kwargs):
         worker = GenericWorker(func, *args, **kwargs)
         if on_success: worker.result_ready.connect(on_success)
-        if on_error: worker.error_occurred.connect(on_error)
-        else: worker.error_occurred.connect(lambda msg: QMessageBox.critical(self, "오류", msg))
+        worker.error_occurred.connect(lambda msg: QMessageBox.critical(self, "엔진 오류", msg))
         if on_status: worker.status_update.connect(on_status)
         else: worker.status_update.connect(lambda msg: self.status_label.setText(msg))
         
@@ -113,272 +190,131 @@ class DataExplorerApp(QMainWindow):
         worker.start()
 
     def set_ui_enabled(self, enabled):
-        self.tabs.setEnabled(enabled)
-        # Add more specific UI elements if needed
+        self.setEnabled(enabled)
 
+    # --- Enterprise Logic ---
     def load_data_async(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "데이터 파일 열기", "", "CSV 파일 (*.csv);;Excel 파일 (*.xlsx *.xls)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "데이터 불러오기", "", "데이터 파일 (*.csv *.xlsx *.xls)")
         if not file_path: return
 
-        def _load_task(path):
-            if path.endswith(".csv"):
-                encoding = detect_encoding_parallel(path)
-                df = pd.read_csv(path, encoding=encoding)
-                return df, f"로드됨 (CSV, {encoding})"
-            else:
-                df = pd.read_excel(path)
-                return df, "로드됨 (Excel)"
+        def _task():
+            encoding = detect_encoding_parallel(file_path) if file_path.endswith(".csv") else "utf-8"
+            success, df, msg = DataEngine.load_data(file_path, encoding)
+            if not success: raise Exception(msg)
+            return df, msg
 
-        def _on_loaded(res):
+        def _on_success(res):
             df, msg = res
             self.df = df
-            self.variables["df"] = self.df
+            self.variables["df"] = df
+            self.update_explorer()
             self.update_table()
             self.update_viz_combos()
-            self.status_label.setText(f"{msg}: {file_path} ({df.shape[0]} 행, {df.shape[1]} 열)")
+            self.status_label.setText(f"{msg}: {file_path}")
 
-        self.start_worker(_load_task, file_path, on_success=_on_loaded)
+        self.start_worker(_task, on_success=_on_success)
 
-    def update_table(self, target_df=None):
-        if target_df is None: target_df = self.df
-        if not target_df.empty:
-            model = PandasModel(target_df)
+    def save_project(self):
+        path, _ = QFileDialog.getSaveFileName(self, "프로젝트 저장", "", "Datamixer Project (*.dmx)")
+        if path:
+            success, msg = SessionManager.save_project(path, self.variables)
+            if success: QMessageBox.information(self, "저장", msg)
+            else: QMessageBox.critical(self, "오류", msg)
+
+    def load_project(self):
+        path, _ = QFileDialog.getOpenFileName(self, "프로젝트 열기", "", "Datamixer Project (*.dmx)")
+        if path:
+            success, res = SessionManager.load_project(path)
+            if success:
+                self.variables = res
+                self.update_explorer()
+                QMessageBox.information(self, "로드", "성공적으로 프로젝트를 불러왔습니다.")
+            else:
+                QMessageBox.critical(self, "오류", res)
+
+    def update_explorer(self):
+        self.explorer_tree.clear()
+        for var, data in self.variables.items():
+            if isinstance(data, pd.DataFrame):
+                item = QTreeWidgetItem([var, f"{data.shape[0]}x{data.shape[1]}"])
+                self.explorer_tree.addTopLevelItem(item)
+
+    def on_variable_clicked(self, item):
+        var_name = item.text(0)
+        self.df = self.variables[var_name]
+        self.update_table()
+        self.update_viz_combos()
+        self.status_label.setText(f"탐색 변수 전환: {var_name}")
+
+    def update_table(self):
+        if not self.df.empty:
+            model = PandasModel(self.df)
             self.table_view.setModel(model)
 
-    def show_data_info(self):
-        if self.df.empty:
-            QMessageBox.warning(self, "경고", "로드된 데이터가 없습니다.")
-            return
-        info_str = f"데이터 형태: {self.df.shape}\n\n컬럼 정보:\n{self.df.dtypes}\n\n결측치:\n{self.df.isnull().sum()}"
-        QMessageBox.information(self, "데이터 정보", info_str)
+    def update_viz_combos(self):
+        cols = list(self.df.columns)
+        self.combo_x.clear()
+        self.combo_y.clear()
+        self.combo_x.addItems(cols)
+        self.combo_y.addItems(cols)
 
-    # --- Operations logic ---
-    def setup_ops_tab(self):
-        layout = QVBoxLayout(self.ops_tab)
-        var_group = QGroupBox("변수 관리")
-        var_layout = QHBoxLayout(var_group)
-        self.combo_vars = QComboBox()
-        self.combo_vars.addItems(["df"])
-        self.combo_vars.currentTextChanged.connect(self.switch_variable)
-        var_layout.addWidget(QLabel("현재 변수:"))
-        var_layout.addWidget(self.combo_vars)
-        self.btn_refresh_vars = QPushButton("변수 목록 갱신")
-        self.btn_refresh_vars.clicked.connect(self.refresh_variable_list)
-        var_layout.addWidget(self.btn_refresh_vars)
-        layout.addWidget(var_group)
-
-        # loc selection
-        loc_group = QGroupBox("데이터 선택 (loc)")
-        loc_layout = QFormLayout(loc_group)
-        self.input_loc_rows = QLineEdit(":")
-        self.input_loc_cols = QLineEdit(":")
-        loc_layout.addRow("행 선택 (예: 0:10, [1,3,5]):", self.input_loc_rows)
-        loc_layout.addRow("열 선택 (예: 'col1':'col3', ['A','B']):", self.input_loc_cols)
-        btn_loc = QPushButton("loc 실행 및 새 변수로 저장")
-        btn_loc.clicked.connect(self.run_loc_async)
-        loc_layout.addRow(btn_loc)
-        layout.addWidget(loc_group)
-
-        # Query filter
-        filter_group = QGroupBox("데이터 필터링 (Query)")
-        filter_layout = QVBoxLayout(filter_group)
-        self.input_query = QLineEdit()
-        self.input_query.setPlaceholderText("예: age > 20 and city == 'Seoul'")
-        filter_layout.addWidget(QLabel("필터 조건:"))
-        filter_layout.addWidget(self.input_query)
-        btn_filter = QPushButton("필터링 실행 및 새 변수로 저장")
-        btn_filter.clicked.connect(self.run_filter_async)
-        filter_layout.addWidget(btn_filter)
-        layout.addWidget(filter_group)
-
-        # New var layout
-        new_var_layout = QHBoxLayout()
-        self.input_new_var = QLineEdit("df_new")
-        new_var_layout.addWidget(QLabel("새 변수 이름:"))
-        new_var_layout.addWidget(self.input_new_var)
-        layout.addLayout(new_var_layout)
-        layout.addStretch()
-
-    def refresh_variable_list(self):
-        current = self.combo_vars.currentText()
-        self.combo_vars.clear()
-        df_vars = [k for k, v in self.variables.items() if isinstance(v, pd.DataFrame)]
-        self.combo_vars.addItems(df_vars)
-        if current in df_vars: self.combo_vars.setCurrentText(current)
-
-    def switch_variable(self, var_name):
-        if var_name in self.variables:
-            self.df = self.variables[var_name]
-            self.update_table()
-            self.update_viz_combos()
-            self.status_label.setText(f"현재 변수 변경됨: {var_name}")
-
-    def run_loc_async(self):
+    def generate_interactive_plot(self):
         if self.df.empty: return
-        new_var_name = self.input_new_var.text()
+        plot_type = self.combo_plot_type.currentText()
+        x = self.combo_x.currentText()
+        y = self.combo_y.currentText()
+        
+        def _task():
+            # Sampling for speed on large data
+            sample_df = self.df
+            if len(self.df) > 100000:
+                sample_df = self.df.sample(100000)
+            return VizManager.generate_plotly_html(sample_df, plot_type, x, y)
+
+        def _on_success(res):
+            html_path, msg = res
+            if html_path:
+                self.browser.setUrl(QUrl.fromLocalFile(html_path))
+                self.central_tabs.setCurrentIndex(1) # Switch to Viz Tab
+            else:
+                QMessageBox.warning(self, "그래프", msg)
+
+        self.start_worker(_task, on_success=_on_success)
+
+    def run_engine_ops(self):
+        if self.df.empty: return
         rows_str = self.input_loc_rows.text()
         cols_str = self.input_loc_cols.text()
-
-        def _loc_task():
-            rows = eval(rows_str) if rows_str != ":" else slice(None)
-            cols = eval(cols_str) if cols_str != ":" else slice(None)
-            return self.df.loc[rows, cols]
-
-        def _on_done(res):
-            self.variables[new_var_name] = res
-            self.refresh_variable_list()
-            self.combo_vars.setCurrentText(new_var_name)
-            QMessageBox.information(self, "성공", f"데이터가 {new_var_name}에 저장되었습니다.")
-
-        self.start_worker(_loc_task, on_success=_on_done)
-
-    def run_filter_async(self):
-        if self.df.empty: return
         query_str = self.input_query.text()
         new_var_name = self.input_new_var.text()
 
-        def _filter_task():
-            return self.df.query(query_str)
+        def _task():
+            res_df = self.df
+            if rows_str != ":" or cols_str != ":":
+                rows = eval(rows_str) if rows_str != ":" else slice(None)
+                cols = eval(cols_str) if cols_str != ":" else slice(None)
+                res_df = res_df.loc[rows, cols]
+            if query_str:
+                res_df = res_df.query(query_str)
+            return res_df
 
-        def _on_done(res):
+        def _on_success(res):
             self.variables[new_var_name] = res
-            self.refresh_variable_list()
-            self.combo_vars.setCurrentText(new_var_name)
-            QMessageBox.information(self, "성공", f"필터링 결과가 {new_var_name}에 저장되었습니다.")
+            self.update_explorer()
+            QMessageBox.information(self, "성공", f"엔진 연산 완료: {new_var_name}")
 
-        self.start_worker(_filter_task, on_success=_on_done)
-
-    # --- Visualization ---
-    def setup_viz_tab(self):
-        layout = QHBoxLayout(self.viz_tab)
-        controls_panel = QWidget()
-        controls_panel.setFixedWidth(300)
-        controls_layout = QVBoxLayout(controls_panel)
-        
-        group_box = QGroupBox("그래프 설정")
-        form_layout = QFormLayout(group_box)
-        self.combo_plot_type = QComboBox()
-        self.combo_plot_type.addItems(["히스토그램", "산점도", "박스 플롯", "히트맵", "선 그래프"])
-        form_layout.addRow("그래프 종류:", self.combo_plot_type)
-        self.combo_x = QComboBox()
-        self.combo_y = QComboBox()
-        form_layout.addRow("X축:", self.combo_x)
-        form_layout.addRow("Y축:", self.combo_y)
-        
-        self.btn_plot = QPushButton("그래프 생성")
-        self.btn_plot.clicked.connect(self.generate_plot)
-        controls_layout.addWidget(group_box)
-        controls_layout.addWidget(self.btn_plot)
-        controls_layout.addStretch()
-        
-        self.canvas_widget = QWidget()
-        self.canvas_layout = QVBoxLayout(self.canvas_widget)
-        self.figure = Figure(figsize=(8, 6), dpi=100)
-        self.canvas = FigureCanvas(self.figure)
-        self.canvas_layout.addWidget(self.canvas)
-        
-        layout.addWidget(controls_panel)
-        layout.addWidget(self.canvas_widget)
-
-    def update_viz_combos(self):
-        if not self.df.empty:
-            cols = list(self.df.columns)
-            self.combo_x.clear()
-            self.combo_y.clear()
-            self.combo_x.addItems(cols)
-            self.combo_y.addItems(cols)
-
-    def generate_plot(self):
-        if self.df.empty:
-            QMessageBox.warning(self, "경고", "로드된 데이터가 없습니다.")
-            return
-        
-        plot_type = self.combo_plot_type.currentText()
-        x_col = self.combo_x.currentText()
-        y_col = self.combo_y.currentText()
-
-        def _plot_task():
-            # Professional Data Sampling for speed (Enterprise standard)
-            MAX_PLOT_ROWS = 50000
-            plot_df = self.df
-            is_sampled = False
-            if len(self.df) > MAX_PLOT_ROWS:
-                plot_df = self.df.sample(MAX_PLOT_ROWS)
-                is_sampled = True
-            
-            # Create a separate figure for background plotting
-            # Note: We still do the final draw on the main canvas in the UI thread for stability
-            return plot_df, is_sampled
-
-        def _on_data_ready(res):
-            plot_df, is_sampled = res
-            self.figure.clear()
-            ax = self.figure.add_subplot(111)
-            
-            # Apply Professional Styling
-            sns.set_theme(style="whitegrid")
-            palette = "viridis" if plot_type in ["히트맵", "산점도"] else "muted"
-            
-            try:
-                if plot_type == "히스토그램":
-                    sns.histplot(data=plot_df, x=x_col, ax=ax, kde=True, color='skyblue')
-                elif plot_type == "산점도":
-                    sns.scatterplot(data=plot_df, x=x_col, y=y_col, ax=ax, alpha=0.6, edgecolor=None)
-                elif plot_type == "박스 플롯":
-                    sns.boxplot(data=plot_df, x=x_col, y=y_col, ax=ax, palette="Set3")
-                elif plot_type == "히트맵":
-                    corr = plot_df.select_dtypes(include=[np.number]).corr()
-                    sns.heatmap(corr, annot=True, cmap='RdBu_r', center=0, ax=ax)
-                elif plot_type == "선 그래프":
-                    sns.lineplot(data=plot_df, x=x_col, y=y_col, ax=ax, marker='o')
-                
-                title_suffix = " (10% 샘플링됨)" if is_sampled else ""
-                ax.set_title(f"{plot_type}: {x_col}{' vs ' + y_col if y_col else ''}{title_suffix}", 
-                            fontsize=12, fontweight='bold', pad=20)
-                ax.set_xlabel(x_col, fontsize=10)
-                ax.set_ylabel(y_col if y_col else "Count", fontsize=10)
-                
-                self.figure.tight_layout()
-                self.canvas.draw()
-                self.status_label.setText(f"그래프 생성 완료{title_suffix}")
-            except Exception as e:
-                QMessageBox.critical(self, "그래프 오류", f"그래프 생성 실패: {str(e)}")
-
-        self.start_worker(_plot_task, on_success=_on_data_ready, on_status=lambda _: self.status_label.setText("그래프 데이터를 분석 중입니다..."))
-
-    # --- CLI Console ---
-    def setup_cli_tab(self, parent_widget):
-        layout = QVBoxLayout(parent_widget)
-        self.btn_detach = QPushButton("CLI를 새 창으로 열기")
-        self.btn_detach.clicked.connect(self.open_cli_window)
-        layout.addWidget(self.btn_detach)
-
-        self.cli_output = QTextEdit()
-        self.cli_output.setReadOnly(True)
-        self.cli_output.setStyleSheet("font-family: 'NanumBarunGothic', Consolas, monospace; border: 1px solid #cccccc;")
-        layout.addWidget(self.cli_output)
-        
-        input_layout = QHBoxLayout()
-        self.cli_input = QLineEdit()
-        self.cli_input.setPlaceholderText("Python/Pandas 명령어를 입력하세요 (예: self.df.head())")
-        self.cli_input.setStyleSheet("font-family: 'NanumBarunGothic', Consolas, monospace; border: 1px solid #cccccc;")
-        self.cli_input.returnPressed.connect(self.execute_cli)
-        
-        self.btn_exec = QPushButton("실행")
-        self.btn_exec.clicked.connect(self.execute_cli)
-        input_layout.addWidget(self.cli_input)
-        input_layout.addWidget(self.btn_exec)
-        layout.addLayout(input_layout)
+        self.start_worker(_task, on_success=_on_success)
 
     def execute_cli(self):
         command = self.cli_input.text()
         if not command: return
-        self.cli_output.append(f"<b style='color: #0056b3;'>>>> {command}</b>")
+        self.cli_output.append(f"<b style='color: #2e7d32;'>>>> {command}</b>")
         
         f = io.StringIO()
         try:
             with contextlib.redirect_stdout(f):
-                result = eval(command, {"self": self, "pd": pd, "np": np, "plt": plt, "sns": sns}, self.variables)
+                # Ensure we pass current app variables
+                result = eval(command, {"self": self, "pd": pd, "np": np, "px": px}, self.variables)
             output = f.getvalue()
             if output: self.cli_output.append(output.strip())
             if result is not None: self.cli_output.append(str(result))
@@ -386,68 +322,13 @@ class DataExplorerApp(QMainWindow):
             try:
                 f = io.StringIO()
                 with contextlib.redirect_stdout(f):
-                    exec(command, {"self": self, "pd": pd, "np": np, "plt": plt, "sns": sns}, self.variables)
+                    exec(command, {"self": self, "pd": pd, "np": np, "px": px}, self.variables)
                 output = f.getvalue()
                 if output: self.cli_output.append(output.strip())
             except Exception as e2:
-                self.cli_output.append(f"<span style='color: #d9534f;'>오류: {str(e2)}</span>")
+                self.cli_output.append(f"<span style='color: #d32f2f;'>Error: {str(e2)}</span>")
         
         self.cli_input.clear()
         self.cli_output.ensureCursorVisible()
+        self.update_explorer()
         self.update_table()
-
-    def open_cli_window(self):
-        self.cli_window = CLIWindow(self)
-        self.cli_window.show()
-
-class CLIWindow(QMainWindow):
-    def __init__(self, parent_app):
-        super().__init__()
-        self.parent_app = parent_app
-        self.setWindowTitle("독립형 CLI 콘솔")
-        self.resize(700, 500)
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
-        
-        self.cli_output = QTextEdit()
-        self.cli_output.setReadOnly(True)
-        self.cli_output.setStyleSheet("font-family: 'NanumBarunGothic', Consolas, monospace; border: 1px solid #cccccc;")
-        layout.addWidget(self.cli_output)
-        
-        input_layout = QHBoxLayout()
-        self.cli_input = QLineEdit()
-        self.cli_input.setPlaceholderText("명령어 입력...")
-        self.cli_input.setStyleSheet("font-family: 'NanumBarunGothic', Consolas, monospace; border: 1px solid #cccccc;")
-        self.cli_input.returnPressed.connect(self.execute_cli)
-        
-        self.btn_exec = QPushButton("실행")
-        self.btn_exec.clicked.connect(self.execute_cli)
-        input_layout.addWidget(self.cli_input)
-        input_layout.addWidget(self.btn_exec)
-        layout.addLayout(input_layout)
-
-    def execute_cli(self):
-        command = self.cli_input.text()
-        if not command: return
-        self.cli_output.append(f"<b style='color: #0056b3;'>>>> {command}</b>")
-        f = io.StringIO()
-        try:
-            with contextlib.redirect_stdout(f):
-                result = eval(command, {"self": self.parent_app, "pd": pd, "np": np, "plt": plt, "sns": sns}, self.parent_app.variables)
-            output = f.getvalue()
-            if output: self.cli_output.append(output.strip())
-            if result is not None: self.cli_output.append(str(result))
-        except Exception:
-            try:
-                f = io.StringIO()
-                with contextlib.redirect_stdout(f):
-                    exec(command, {"self": self.parent_app, "pd": pd, "np": np, "plt": plt, "sns": sns}, self.parent_app.variables)
-                output = f.getvalue()
-                if output: self.cli_output.append(output.strip())
-            except Exception as e2:
-                self.cli_output.append(f"<span style='color: #d9534f;'>오류: {str(e2)}</span>")
-        
-        self.cli_input.clear()
-        self.cli_output.ensureCursorVisible()
-        self.parent_app.update_table()
