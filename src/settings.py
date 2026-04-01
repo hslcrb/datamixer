@@ -9,12 +9,13 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None, current_settings=None):
         super().__init__(parent)
         self.setWindowTitle("시스템 환경 설정")
-        self.setFixedSize(400, 350)
+        self.setFixedSize(450, 420)
         self.settings = current_settings or {
             "compress": True,
             "theme": "Light",
             "font_size": 10,
-            "default_engine": "Polars"
+            "default_engine": "Polars",
+            "auto_analysis": False
         }
         self.init_ui()
 
@@ -27,14 +28,22 @@ class SettingsDialog(QDialog):
         self.cb_compress = QCheckBox("DMX 전용 패키지 압축 사용 (권장)")
         self.cb_compress.setChecked(self.settings.get("compress", True))
         persist_layout.addRow(self.cb_compress)
-        persist_layout.addRow(QLabel("해제 시 단일 XML 파일로 저장되며 시스템 로드가 증가할 수 있습니다."))
         layout.addWidget(persist_group)
+
+        # Intelligence Group
+        intel_group = QGroupBox("지능형 분석 설정 (AI)")
+        intel_layout = QFormLayout(intel_group)
+        self.cb_auto_analysis = QCheckBox("데이터 로드 시 자동 지능형 분석 수행")
+        self.cb_auto_analysis.setChecked(self.settings.get("auto_analysis", False))
+        intel_layout.addRow(self.cb_auto_analysis)
+        intel_layout.addRow(QLabel("활성 시 시스템이 최적의 시각화 파라미터를 자동 설정합니다."))
+        layout.addWidget(intel_group)
 
         # Appearance Group
         app_group = QGroupBox("인터페이스")
         app_layout = QFormLayout(app_group)
         self.combo_theme = QComboBox()
-        self.combo_theme.addItems(["Light", "Dark (Coming Soon)"])
+        self.combo_theme.addItems(["Light", "Dark"])
         self.combo_theme.setCurrentText(self.settings.get("theme", "Light"))
         app_layout.addRow("테마:", self.combo_theme)
         
@@ -58,6 +67,7 @@ class SettingsDialog(QDialog):
     def get_settings(self):
         return {
             "compress": self.cb_compress.isChecked(),
+            "auto_analysis": self.cb_auto_analysis.isChecked(),
             "theme": self.combo_theme.currentText(),
             "font_size": self.spin_font.value(),
             "default_engine": self.settings.get("default_engine", "Polars")
