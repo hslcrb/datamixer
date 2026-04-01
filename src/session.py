@@ -4,7 +4,7 @@ import io
 import base64
 import pandas as pd
 import xml.etree.ElementTree as ET
-from xml.dom import minidoc
+from xml.dom import minidom
 
 class SessionManager:
     """Enterprise project persistence (Smart ZIP + XML package)."""
@@ -38,7 +38,7 @@ class SessionManager:
                             zf.writestr(df_filename, pq_buffer.getvalue())
                     
                     xml_str = ET.tostring(root, encoding='utf-8')
-                    pretty_xml = minidoc.parseString(xml_str).toprettyxml(indent="  ")
+                    pretty_xml = minidom.parseString(xml_str).toprettyxml(indent="  ")
                     zf.writestr("session.xml", pretty_xml)
                 
                 with open(path, 'wb') as f:
@@ -57,7 +57,7 @@ class SessionManager:
                         df_node.text = b64_data
                 
                 xml_str = ET.tostring(root, encoding='utf-8')
-                pretty_xml = minidoc.parseString(xml_str).toprettyxml(indent="  ")
+                pretty_xml = minidom.parseString(xml_str).toprettyxml(indent="  ")
                 with open(path, 'w', encoding='utf-8') as f:
                     f.write(pretty_xml)
                 return True, "단일 XML 프로젝트 저장 완료 (.dmx)"
