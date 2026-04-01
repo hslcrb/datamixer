@@ -296,25 +296,55 @@ class DataExplorerApp(QMainWindow):
         plot_type = self.combo_plot_type.currentText()
         x_col = self.combo_x.currentText()
         y_col = self.combo_y.currentText()
-        
-        self.figure.clear()
-        ax = self.figure.add_subplot(111)
-        try:
-            if plot_type == "히스토그램":
-                sns.histplot(data=self.df, x=x_col, ax=ax, kde=True)
-            elif plot_type == "산점도":
-                sns.scatterplot(data=self.df, x=x_col, y=y_col, ax=ax)
-            elif plot_type == "박스 플롯":
-                sns.boxplot(data=self.df, x=x_col, y=y_col, ax=ax)
-            elif plot_type == "히트맵":
-                sns.heatmap(self.df.corr(), annot=True, cmap='coolwarm', ax=ax)
-            elif plot_type == "선 그래프":
-                sns.lineplot(data=self.df, x=x_col, y=y_col, ax=ax)
+
+        def _plot_task():
+            # Professional Data Sampling for speed (Enterprise standard)
+            MAX_PLOT_ROWS = 50000
+            plot_df = self.df
+            is_sampled = False
+            if len(self.df) > MAX_PLOT_ROWS:
+                plot_df = self.df.sample(MAX_PLOT_ROWS)
+                is_sampled = True
             
-            ax.set_title(f"{plot_type}: {x_col} vs {y_col}")
-            self.canvas.draw()
-        except Exception as e:
-            QMessageBox.critical(self, "그래프 오류", f"그래프 생성 실패: {str(e)}")
+            # Create a separate figure for background plotting
+            # Note: We still do the final draw on the main canvas in the UI thread for stability
+            return plot_df, is_sampled
+
+        def _on_data_ready(res):
+            plot_df, is_sampled = res
+            self.figure.clear()
+            ax = self.figure.add_subplot(111)
+            
+            # Apply Professional Styling
+            sns.set_theme(style="whitegrid")
+            palette = "viridis" if plot_type in ["히트맵", "산점도"] else "muted"
+            
+            try:
+                if plot_type == "히스토그램":
+                    sns.histplot(data=plot_df, x=x_col, ax=ax, kde=True, color='skyblue')
+                elif plot_type == "산점도":
+                    sns.scatterplot(data=plot_df, x=x_col, y=y_col, ax=ax, alpha=0.6, edgecolor=None)
+                elif plot_type == "박스 플롯":
+                    sns.boxplot(data=plot_df, x=x_col, y=y_col, ax=ax, palette="Set3")
+                elif plot_type == "히트맵":
+                    corr = plot_df.select_dtypes(include=[np.number]).corr()
+                    sns.heatmap(corr, annot=True, cmap='RdBu_r', center=0, ax=ax)
+                elif plot_type == "선 그래프":
+                    sns.lineplot(data=plot_df, x=x_col, y=y_col, ax=ax, marker='o')
+                
+                title_suffix = " (10% 샘플링됨)" if is_sampled else ""
+                ax.set_title(f"{plot_type}: {x_col}{' vs ' + y_col if y_col else ''}{title_suffix}", 
+                            fontsize=12, fontweight='bold', pad=20)
+                ax.set_xlabel(x_col, fontsize=10)
+                ax.set_ylabel(y_col if y_col else "Count", fontsize=10)
+                
+                self.figure.tight_layout()
+                self.canvas.draw()
+                self.status_label.setText(f"그래프 생성 완료{title_suffix}")
+            except Exception as e:
+                QMessageBox.critical(self, "그래프 오류", f"그래프 생성 실패: {str(e)}")
+
+        self.start_worker(_plot_task, on_success=_on_data_ready, on_status=lambda _: self.status_label.setText("그래프 데이터를 분석 중입니다..."))
 
     # --- CLI Console ---
     def setup_cli_tab(self, parent_widget):
