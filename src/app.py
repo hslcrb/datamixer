@@ -304,15 +304,22 @@ class DataExplorerApp(QMainWindow):
             if r != ":" or c != ":": res = res.loc[eval(r) if r != ":" else slice(None), eval(c) if c != ":" else slice(None)]
             if q: res = res.query(q)
             return res
-        def _ok(res): self.variables[nv] = res; self.update_explorer(); QMessageBox.information(self, "성공", f"연산 완료: {nv}")
+        def _ok(res):
+            self.variables[nv] = res
+            self.update_explorer()
+            QMessageBox.information(self, "성공", f"연산 완료: {nv}")
         self.start_worker(_t)
 
     def execute_cli(self):
-        t = self.cli_input.text(); if not t: return
+        t = self.cli_input.text()
+        if not t: return
         self.cli_output.append(f"<b style='color: #27ae60;'>>>> {t}</b>")
         res = self.repl.process_input(t)
         if res: self.cli_output.append(res)
-        self.cli_input.clear(); self.cli_output.ensureCursorVisible(); self.update_explorer(); self.update_table()
+        self.cli_input.clear()
+        self.cli_output.ensureCursorVisible()
+        self.update_explorer()
+        self.update_table()
 
     def start_worker(self, func, *args, on_success=None, on_status=None, **kwargs):
         worker = GenericWorker(func, *args, **kwargs)
