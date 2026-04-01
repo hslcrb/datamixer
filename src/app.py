@@ -4,19 +4,16 @@ import os
 import contextlib
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 import plotly.express as px
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QFileDialog, QTableView, QTabWidget, QLabel,
-    QPlainTextEdit, QLineEdit, QComboBox, QGroupBox, QFormLayout,
+    QLineEdit, QComboBox, QGroupBox, QFormLayout,
     QMessageBox, QHeaderView, QTextEdit, QDockWidget, QTreeWidget,
-    QTreeWidgetItem, QToolBar, QStatusBar, QFrame, QSplitter
+    QTreeWidgetItem, QToolBar, QStatusBar, QFrame
 )
-from PySide6.QtCore import Qt, Slot, QUrl, QSize, QByteArray, QIODevice
-from PySide6.QtGui import QAction, QIcon, QDragEnterEvent, QDropEvent
+from PySide6.QtCore import Qt, QUrl, QSize, QByteArray
 
 # Internal imports
 from .models import PandasModel
@@ -25,6 +22,7 @@ from .worker import GenericWorker
 from .engine import DataEngine
 from .session import SessionManager
 from .viz_manager import VizManager
+from .settings import SettingsDialog
 
 class DataExplorerApp(QMainWindow):
     def __init__(self):
@@ -38,10 +36,18 @@ class DataExplorerApp(QMainWindow):
         self.variables = {"df": self.df}
         self.workers = []
         
+        # Initial Global Settings
+        self.app_settings = {
+            "compress": True,
+            "theme": "Light",
+            "font_size": 10,
+            "default_engine": "Polars"
+        }
+        
         self.init_ui()
         self.init_menu_and_toolbar()
         
-        # Default Settings
+        # Default State
         self.engine_mode = "Polars" 
         self.viz_lib = "Plotly"
         
@@ -80,7 +86,7 @@ class DataExplorerApp(QMainWindow):
         # 2. Docks
         self.setup_docks()
         
-        # 5. Bottom Status Bar
+        # 3. Bottom Status Bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_label = QLabel("준비")
@@ -171,11 +177,10 @@ class DataExplorerApp(QMainWindow):
         
         input_layout = QHBoxLayout()
         self.cli_input = QLineEdit()
-        self.cli_input.setPlaceholderText("엔진 직접 제어 명령어 입력... (예: self.df.info())")
-        self.cli_input.setStyleSheet("font-family: 'Consolas', monospace; font-size: 10pt; height: 30px;")
+        self.cli_input.setPlaceholderText("엔진 직접 제어 명령어 입력...")
+        self.cli_input.setStyleSheet("font-family: 'Consolas', monospace; height: 30px;")
         self.cli_input.returnPressed.connect(self.execute_cli)
         self.btn_exec = QPushButton("실행")
-        self.btn_exec.setFixedWidth(80)
         self.btn_exec.clicked.connect(self.execute_cli)
         input_layout.addWidget(self.cli_input)
         input_layout.addWidget(self.btn_exec)
@@ -187,38 +192,37 @@ class DataExplorerApp(QMainWindow):
         
         actions = [
             ("데이터 로드...", self.load_data_async),
-            ("프로젝트 저장 (.dmx)...", self.save_project),
-            ("프로젝트 열기 (.dmx)...", self.load_project),
+            ("프로젝트 저장... (.dmx)", self.save_project),
+            ("프로젝트 열기... (.dmx)", self.load_project),
+            (None, None),
+            ("환경 설정...", self.open_settings),
             (None, None),
             ("종료", self.close)
         ]
         
         for name, callback in actions:
-            if name is None:
-                file_menu.addSeparator()
+            if name is None: file_menu.addSeparator()
             else:
-                act = QAction(name, self)
+                act = file_menu.addAction(name)
                 act.triggered.connect(callback)
-                file_menu.addAction(act)
         
         # Toolbar
         toolbar = QToolBar("Enterprise Tools")
-        toolbar.setIconSize(QSize(24, 24))
         self.addToolBar(toolbar)
         
-        # Add basic actions
-        load_act = QAction("로드", self)
-        load_act.triggered.connect(self.load_data_async)
-        toolbar.addAction(load_act)
-        
-        save_act = QAction("저장", self)
-        save_act.triggered.connect(self.save_project)
-        toolbar.addAction(save_act)
+        btn_settings = QPushButton("환경 설정")
+        btn_settings.clicked.connect(self.open_settings)
+        toolbar.addWidget(btn_settings)
 
-    # --- Mode Management ---
+    # --- Settings ---
+    def open_settings(self):
+        diag = SettingsDialog(self, self.app_settings)
+        if diag.exec():
+            self.app_settings = diag.get_settings()
+            self.status_label.setText("환경 설정이 업데이트되었습니다.")
+
     def update_engine_mode(self, text):
         self.engine_mode = "Polars" if "Polars" in text else "Pandas"
-        self.status_label.setText(f"엔진 모드 전환: {self.engine_mode}")
 
     def update_viz_lib(self, text):
         self.viz_lib = "Plotly" if "Plotly" in text else "Matplotlib"
@@ -228,36 +232,21 @@ class DataExplorerApp(QMainWindow):
         else:
             self.browser.hide()
             self.static_canvas_container.show()
-        self.status_label.setText(f"시각화 라이브러리 전환: {self.viz_lib}")
 
-    # --- Drag & Drop ---
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().hasUrls():
-            event.accept()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event: QDropEvent):
-        urls = event.mimeData().urls()
-        if urls:
-            file_path = urls[0].toLocalFile()
-            if file_path.endswith(".dmx"):
-                self.load_project_file(file_path)
-            else:
-                self.load_data_file_async(file_path)
-
-    # --- Persistence Architecture ---
+    # --- Persistence ---
     def save_project(self):
         path, _ = QFileDialog.getSaveFileName(self, "Enterprise 프로젝트 저장", "", "Datamixer Project (*.dmx)")
         if path:
             ui_state = {
                 "Geometry": self.saveGeometry().toHex().data().decode(),
                 "State": self.saveState().toHex().data().decode(),
-                "SelectedTab": self.central_tabs.currentIndex(),
                 "EngineMode": self.engine_mode,
-                "VizLib": self.viz_lib
+                "VizLib": self.viz_lib,
+                "SelectedTab": self.central_tabs.currentIndex()
             }
-            success, msg = SessionManager.save_project(path, self.variables, ui_state)
+            # Use Settings for Compression
+            compress = self.app_settings.get("compress", True)
+            success, msg = SessionManager.save_project(path, self.variables, ui_state, compress=compress)
             if success: self.status_label.setText(msg)
             else: QMessageBox.critical(self, "저장 오류", msg)
 
@@ -271,7 +260,6 @@ class DataExplorerApp(QMainWindow):
         if success:
             self.variables = res["variables"]
             self.update_explorer()
-            # Restore UI State
             ui_state = res["ui_state"]
             if "Geometry" in ui_state:
                 self.restoreGeometry(QByteArray.fromHex(ui_state["Geometry"].encode()))
@@ -281,28 +269,26 @@ class DataExplorerApp(QMainWindow):
                 self.combo_engine.setCurrentText(ui_state["EngineMode"])
             if "VizLib" in ui_state:
                 self.combo_lib.setCurrentText(ui_state["VizLib"])
-            
-            QMessageBox.information(self, "로드 완료", "프로젝트 세션이 성공적으로 복구되었습니다.")
+            self.status_label.setText(f"프로젝트 로드 완료: {os.path.basename(path)}")
         else:
             QMessageBox.critical(self, "오류", res)
 
-    # --- Worker Core ---
+    # --- Data & Worker Core ---
     def start_worker(self, func, *args, on_success=None, on_status=None, **kwargs):
         worker = GenericWorker(func, *args, **kwargs)
         if on_success: worker.result_ready.connect(on_success)
-        worker.error_occurred.connect(lambda msg: QMessageBox.critical(self, "실행 오류", msg))
+        worker.error_occurred.connect(lambda msg: QMessageBox.critical(self, "오류", msg))
         if on_status: worker.status_update.connect(on_status)
         
-        worker.finished.connect(lambda: self.set_ui_enabled(True))
+        worker.finished.connect(lambda: self.setEnabled(True))
         worker.finished.connect(lambda: self.workers.remove(worker) if worker in self.workers else None)
         
         self.workers.append(worker)
-        self.set_ui_enabled(False)
+        self.setEnabled(False)
         worker.start()
 
-    # --- Data Logic ---
     def load_data_async(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "데이터 소스 로드", "", "데이터 파일 (*.csv *.xlsx *.xls)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "데이터 불러오기", "", "데이터 파일 (*.csv *.xlsx *.xls)")
         if file_path:
             self.load_data_file_async(file_path)
 
@@ -317,7 +303,6 @@ class DataExplorerApp(QMainWindow):
             df, msg = res
             var_name = os.path.basename(file_path).replace(".", "_")
             self.variables[var_name] = df
-            self.df = df
             self.update_explorer()
             self.update_table()
             self.update_viz_combos()
@@ -350,51 +335,36 @@ class DataExplorerApp(QMainWindow):
         self.combo_x.addItems(cols)
         self.combo_y.addItems(cols)
 
-    # --- Visualization Dispatcher ---
     def generate_plot_dispatch(self):
         if self.df.empty: return
         plot_type = self.combo_plot_type.currentText()
         x = self.combo_x.currentText()
         y = self.combo_y.currentText()
         
-        # Intelligent Sampling
         sample_df = self.df
         if len(self.df) > 100000:
             sample_df = self.df.sample(100000)
 
         if self.viz_lib == "Plotly":
-            def _plotly_task():
-                return VizManager.generate_plotly_html(sample_df, plot_type, x, y)
-            
-            def _on_plotly_done(res):
-                html_path, msg = res
-                if html_path:
-                    self.browser.setUrl(QUrl.fromLocalFile(html_path))
-                    self.central_tabs.setCurrentIndex(1)
-                else: QMessageBox.warning(self, "Plotly", msg)
-            
-            self.start_worker(_plotly_task, on_success=_on_plotly_done)
-        
-        else: # Matplotlib
+            self.start_worker(
+                lambda: VizManager.generate_plotly_html(sample_df, plot_type, x, y),
+                on_success=lambda res: self.browser.setUrl(QUrl.fromLocalFile(res[0])) if res[0] else None
+            )
+        else:
             def _mpl_task():
                 return VizManager.generate_matplotlib_fig(sample_df, plot_type, x, y)
             
             def _on_mpl_done(res):
                 fig, msg = res
                 if fig:
-                    # Clear canvas container
                     for i in reversed(range(self.static_canvas_layout.count())): 
                         self.static_canvas_layout.itemAt(i).widget().setParent(None)
-                    
                     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-                    canvas = FigureCanvas(fig)
-                    self.static_canvas_layout.addWidget(canvas)
-                    self.central_tabs.setCurrentIndex(1)
+                    self.static_canvas_layout.addWidget(FigureCanvas(fig))
                 else: QMessageBox.warning(self, "Matplotlib", msg)
             
             self.start_worker(_mpl_task, on_success=_on_mpl_done)
 
-    # --- Engine Ops ---
     def run_engine_ops(self):
         if self.df.empty: return
         rows_str = self.input_loc_rows.text()
@@ -415,14 +385,15 @@ class DataExplorerApp(QMainWindow):
         def _on_success(res):
             self.variables[new_var_name] = res
             self.update_explorer()
-            QMessageBox.information(self, "성공", f"엔진 연산 완료 및 저장: {new_var_name}")
+            QMessageBox.information(self, "성공", f"엔진 연산 완료: {new_var_name}")
 
-        self.start_worker(_task, on_status=lambda _: self.status_label.setText("데이터 엔진 파이프라인 가동..."))
+        self.start_worker(_task)
 
     def execute_cli(self):
         command = self.cli_input.text()
         if not command: return
-        self.cli_output.append(f"<b style='color: #2c5f2d;'>>>> {command}</b>")
+        self.cli_output.append(f"<b style='color: #2e7d32;'>>>> {command}</b>")
+        
         f = io.StringIO()
         try:
             with contextlib.redirect_stdout(f):
@@ -438,9 +409,21 @@ class DataExplorerApp(QMainWindow):
                 output = f.getvalue()
                 if output: self.cli_output.append(output.strip())
             except Exception as e2:
-                self.cli_output.append(f"<span style='color: #c0392b;'>Error: {str(e2)}</span>")
+                self.cli_output.append(f"<span style='color: #d32f2f;'>Error: {str(e2)}</span>")
         
         self.cli_input.clear()
         self.cli_output.ensureCursorVisible()
         self.update_explorer()
         self.update_table()
+
+    # --- Drag & Drop ---
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls(): event.accept()
+        else: event.ignore()
+
+    def dropEvent(self, event):
+        urls = event.mimeData().urls()
+        if urls:
+            path = urls[0].toLocalFile()
+            if path.endswith(".dmx"): self.load_project_file(path)
+            else: self.load_data_file_async(path)
