@@ -171,6 +171,16 @@ class DataExplorerApp(QMainWindow):
         # Data Table View
         self.table_view = QTableView()
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.table_view.setStyleSheet("""
+            QTableView {
+                selection-background-color: rgba(135, 206, 235, 100);
+                selection-color: #333333;
+                gridline-color: #f0f0f0;
+            }
+            QTableView::item:selected {
+                background-color: rgba(135, 206, 235, 100);
+            }
+        """)
         layout.addWidget(self.table_view)
 
     def load_data(self):
