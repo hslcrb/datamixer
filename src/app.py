@@ -31,7 +31,7 @@ from .theme import ThemeManager
 class DataExplorerApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Datamixer Enterprise - Intelligence Hub Dark Edition")
+        self.setWindowTitle("Datamixer Enterprise - High-Performance AI Hub V6")
         self.resize(1600, 1000)
         self.setAcceptDrops(True)
         
@@ -43,7 +43,7 @@ class DataExplorerApp(QMainWindow):
         # Global Settings (Dark as default)
         self.app_settings = {
             "compress": True, "theme": "Dark", "font_size": 10, 
-            "default_engine": "Polars", "auto_analysis": False
+            "default_engine": "Polars", "auto_analysis": True
         }
         
         # Apply Global Dark Theme
@@ -55,17 +55,17 @@ class DataExplorerApp(QMainWindow):
         self.init_ui()
         self.init_menu_and_toolbar()
         
-        # Engine State
+        # State
         self.engine_mode = "Polars" 
         self.viz_lib = "Plotly"
-        self.status_label.setText("Datamixer Enterprise Dark Core 활성화 - 시스템 무결성 확인 완료")
+        self.status_label.setText("Enterprise AI Hub V6 - 병렬 엔진 로드 대기 중")
 
     def init_ui(self):
         self.setDockNestingEnabled(True)
         self.central_tabs = QTabWidget()
         self.setCentralWidget(self.central_tabs)
         
-        # 1. Integration Grid Tab
+        # 1. Grid Tab
         self.view_tab = QWidget()
         vk = QVBoxLayout(self.view_tab)
         self.table_view = QTableView()
@@ -74,7 +74,7 @@ class DataExplorerApp(QMainWindow):
         vk.addWidget(self.table_view)
         self.central_tabs.addTab(self.view_tab, "지능형 분석 그리드")
         
-        # 2. Intelligence Visualization Tab
+        # 2. Intelligence Viz
         self.viz_container = QWidget()
         vz = QVBoxLayout(self.viz_container)
         self.browser = QWebEngineView()
@@ -84,41 +84,41 @@ class DataExplorerApp(QMainWindow):
         vz.addWidget(self.browser)
         vz.addWidget(self.static_canvas_container)
         self.static_canvas_container.hide()
-        self.central_tabs.addTab(self.viz_container, "지능형 레포트 및 시각화")
+        self.central_tabs.addTab(self.viz_container, "지능형 시각 결과")
         
         self.setup_docks()
         
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_label = QLabel("Enterprise Core READY")
+        self.status_label = QLabel("Enterprise AI HUB READY")
         self.status_bar.addWidget(self.status_label)
 
     def setup_docks(self):
-        # Data Explorer
+        # Explorer
         self.explorer_dock = QDockWidget("데이터 탐색기 (Vars)", self)
         self.explorer_tree = QTreeWidget()
-        self.explorer_tree.setHeaderLabels(["변수명", "형태", "메모리 점유"])
+        self.explorer_tree.setHeaderLabels(["변수명", "형태", "메모리"])
         self.explorer_tree.itemClicked.connect(self.on_variable_clicked)
         self.explorer_dock.setWidget(self.explorer_tree)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.explorer_dock)
         
         # AI Insight
-        self.insight_dock = QDockWidget("AI 지능형 분석 리포트", self)
+        self.insight_dock = QDockWidget("AI 지능형 분석 리포트 (Real-time)", self)
         self.insight_output = QTextEdit()
         self.insight_output.setReadOnly(True)
-        self.insight_output.setPlaceholderText("데이터를 로드하면 고도화된 AI 리포트가 이곳에 나타납니다.")
-        self.insight_output.setMinimumHeight(200)
+        self.insight_output.setPlaceholderText("분석 대기 중...")
+        self.insight_output.setStyleSheet("font-family: 'Cascadia Code', 'Consolas'; background-color: #1a1b26; border: none;")
         self.insight_dock.setWidget(self.insight_output)
         self.addDockWidget(Qt.RightDockWidgetArea, self.insight_dock)
 
         # REPL Virtual Console
-        self.console_dock = QDockWidget("CLI / REPL 터미널 코어", self)
+        self.console_dock = QDockWidget("CLI 터미널 코어", self)
         self.setup_cli_tab()
         self.console_dock.setWidget(self.cli_container)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.console_dock)
         
         # Toolbox
-        self.props_dock = QDockWidget("시스템 제어 툴킷", self)
+        self.props_dock = QDockWidget("지능형 툴킷", self)
         self.setup_props_panel()
         self.props_dock.setWidget(self.props_container)
         self.addDockWidget(Qt.RightDockWidgetArea, self.props_dock, Qt.Vertical)
@@ -127,9 +127,9 @@ class DataExplorerApp(QMainWindow):
         self.props_container = QWidget()
         layout = QVBoxLayout(self.props_container)
         
-        info_group = QGroupBox("매핑 스키마 (Detailed Schema)")
+        info_group = QGroupBox("매핑 스키마 (Schema Mapping)")
         self.info_v = QVBoxLayout(info_group)
-        self.lbl_data_info = QLabel("지능형 엔진 대기 중...")
+        self.lbl_data_info = QLabel("데이터를 로드해 주세요.")
         self.lbl_data_info.setWordWrap(True)
         self.lbl_data_info.setStyleSheet("color: #7aa2f7; font-weight: bold;")
         self.info_v.addWidget(self.lbl_data_info)
@@ -137,27 +137,23 @@ class DataExplorerApp(QMainWindow):
 
         viz_group = QGroupBox("시각화 인터페이스 제어")
         vf = QFormLayout(viz_group)
-        self.combo_plot_type = QComboBox()
-        self.combo_plot_type.addItems(["히스토그램", "산점도", "박스 플롯", "히트맵", "선 그래프"])
+        self.combo_plot_type = QComboBox(); self.combo_plot_type.addItems(["히스토그램", "산점도", "박스 플롯", "히트맵", "선 그래프"])
         vf.addRow("그래프 종류:", self.combo_plot_type)
         self.combo_x = QComboBox(); self.combo_y = QComboBox()
         vf.addRow("X축 필드:", self.combo_x); vf.addRow("Y축 필드:", self.combo_y)
-        self.btn_plot = QPushButton("엔진 렌더링 실행")
-        self.btn_plot.clicked.connect(self.generate_plot_dispatch)
+        self.btn_plot = QPushButton("엔진 렌더링 실행"); self.btn_plot.clicked.connect(self.generate_plot_dispatch)
         vf.addRow(self.btn_plot)
         layout.addWidget(viz_group)
-        
         layout.addStretch()
 
     def setup_cli_tab(self):
         self.cli_container = QWidget()
         cl = QVBoxLayout(self.cli_container)
         self.cli_output = QTextEdit(); self.cli_output.setReadOnly(True)
-        self.cli_output.setStyleSheet("font-family: 'Cascadia Code', 'Consolas'; font-size: 10pt;")
+        self.cli_output.setStyleSheet("font-family: 'Cascadia Code', 'Consolas'; font-size: 10pt; border: none;")
         cl.addWidget(self.cli_output)
-        
         il = QHBoxLayout()
-        self.cli_input = QLineEdit(); self.cli_input.setPlaceholderText("명령어/슬래시 명령 입력 (/help)")
+        self.cli_input = QLineEdit(); self.cli_input.setPlaceholderText("명령어 입력... (예: /help, df.info())")
         self.cli_input.returnPressed.connect(self.execute_cli)
         self.btn_exec = QPushButton("ENTER"); self.btn_exec.clicked.connect(self.execute_cli)
         il.addWidget(self.cli_input); il.addWidget(self.btn_exec)
@@ -166,14 +162,13 @@ class DataExplorerApp(QMainWindow):
     def init_menu_and_toolbar(self):
         menubar = self.menuBar(); file_menu = menubar.addMenu("파일 (&F)")
         for name, callback in [
-            ("데이터 불러오기 (Import)...", self.load_data_async), ("프로젝트 저장 (Save)...", self.save_project),
-            ("프로젝트 열기 (Open)...", self.load_project), (None, None),
-            ("지능형 환경 설정...", self.open_settings), (None, None), ("종료 (Exit)", self.close)
+            ("데이터 불러오기 (Import)...", self.load_data_async), ("프로젝트 저장...", self.save_project),
+            ("프로젝트 열기...", self.load_project), (None, None),
+            ("환경 설정 (Settings)...", self.open_settings), (None, None), ("종료 (Exit)", self.close)
         ]:
             if name is None: file_menu.addSeparator()
             else: file_menu.addAction(name).triggered.connect(callback)
-        
-        toolbar = QToolBar("Enterprise Hub AI"); self.addToolBar(toolbar)
+        toolbar = QToolBar("Enterprise Hub AI Core"); self.addToolBar(toolbar)
         bt_set = QPushButton("시스템 설정"); bt_set.clicked.connect(self.open_settings); toolbar.addWidget(bt_set)
 
     def open_settings(self):
@@ -186,36 +181,39 @@ class DataExplorerApp(QMainWindow):
         if self.viz_lib == "Plotly": self.browser.show(); self.static_canvas_container.hide()
         else: self.browser.hide(); self.static_canvas_container.show()
 
+    # --- IMMEDIATE LOADING & PARALLEL ANALYSIS ---
     def load_data_file_async(self, file_path):
-        def _task():
+        """Immediately display data while processing intelligence in parallel."""
+        # 1. Load data worker (Primary)
+        def _load_task():
             encoding = detect_encoding_parallel(file_path) if file_path.endswith(".csv") else "utf-8"
             success, df, msg = DataEngine.load_data(file_path, encoding)
             if not success: raise Exception(msg)
             return df, msg, encoding
 
-        def _on_success(res):
+        def _on_load_success(res):
             df, msg, encoding = res
             var_name = os.path.basename(file_path).replace(".", "_")
             self.variables[var_name] = df; self.df = df
+            # IMMEDIATE UI FEEDBACK
             self.update_explorer(); self.update_table(); self.update_viz_combos()
             self.display_data_mapping(df, encoding)
-            if self.app_settings["auto_analysis"]: self.perform_intelligence_analysis(df)
-            self.status_label.setText(f"SUCCESS: {file_path}")
+            self.status_label.setText(f"데이터 즉시 로드 완료: {file_path}")
+            
+            # 2. Trigger Intelligence Analysis in Parallel (Second Worker)
+            if self.app_settings["auto_analysis"]:
+                self.start_worker(
+                    lambda: IntelligenceCore.analyze_full_profile(df),
+                    on_success=self.on_intelligence_finished,
+                    on_status=lambda _: self.status_label.setText("데이터 지능형 패턴 분석 중...")
+                )
 
-        self.start_worker(_task, on_status=lambda _: self.status_label.setText("AI Core 가동 중..."))
+        self.start_worker(_load_task, on_status=lambda _: self.status_label.setText("데이터 지능형 로드 중..."))
 
-    def display_data_mapping(self, df, encoding):
-        info = f"<b>Encoding:</b> <span style='color: #9ece6a;'>{encoding}</span><br>"
-        info += f"<b>Shape:</b> <span style='color: #7aa2f7;'>{df.shape[0]:,} row x {df.shape[1]:,} col</span><br><br>"
-        info += "<b>Schema Mapping:</b><br>"
-        for col in df.columns:
-            info += f"- {col}: <span style='color: #e0af68;'>{str(df[col].dtype)}</span><br>"
-        self.lbl_data_info.setText(info)
-
-    def perform_intelligence_analysis(self, df):
-        report = IntelligenceCore.analyze_full_profile(df)
-        txt = "<b>[지능형 데이터 분석 보고서 - AI CORE]</b><br><br>"
-        for insight in report["insights"]: txt += f"<span style='color: #bb9af7;'>-</span> {insight}<br><br>"
+    def on_intelligence_finished(self, report):
+        """Handle results from the parallel intelligence worker."""
+        txt = "<b>[지능형 데이터 분석 보고서 - AI CORE V6]</b><br><br>"
+        for insight in report["insights"]: txt += f"<span style='color: #7aa2f7;'>-</span> {insight}<br><br>"
         self.insight_output.setHtml(txt)
         if report["suggestions"]:
             best = report["suggestions"][0]
@@ -223,6 +221,14 @@ class DataExplorerApp(QMainWindow):
             self.combo_x.setCurrentText(best["x"])
             if best["y"]: self.combo_y.setCurrentText(best["y"])
             self.generate_plot_dispatch()
+            self.status_label.setText(f"분석 완료: {best['desc']} 제안.")
+
+    def display_data_mapping(self, df, encoding):
+        info = f"<b>Encoding:</b> <span style='color: #9ece6a;'>{encoding}</span><br>"
+        info += f"<b>Shape:</b> <span style='color: #7aa2f7;'>{df.shape[0]:,} row x {df.shape[1]:,} col</span><br><br>"
+        info += "<b>Schema Mapping:</b><br>"
+        for col in df.columns: info += f"- {col}: <span style='color: #e0af68;'>{str(df[col].dtype)}</span><br>"
+        self.lbl_data_info.setText(info)
 
     def load_data_async(self):
         p, _ = QFileDialog.getOpenFileName(self, "Import Data", "", "Data Files (*.csv *.xlsx *.xls)")
@@ -271,15 +277,10 @@ class DataExplorerApp(QMainWindow):
         t = self.combo_plot_type.currentText(); x = self.combo_x.currentText(); y = self.combo_y.currentText()
         dp = self.df if len(self.df) < 100000 else self.df.sample(100000)
         
-        # Set template to dark for Plotly
         if self.viz_lib == "Plotly":
-            def _plotly():
-                html, msg = VizManager.generate_plotly_html(dp, t, x, y)
-                return html, msg
-            self.start_worker(_plotly, on_success=lambda r: self.browser.setUrl(QUrl.fromLocalFile(r[0])) if r[0] else None)
+            self.start_worker(lambda: VizManager.generate_plotly_html(dp, t, x, y), on_success=lambda r: self.browser.setUrl(QUrl.fromLocalFile(r[0])) if r[0] else None)
         else:
             def _mpl(): 
-                # Set dark mode for matplotlib too
                 plt.style.use('dark_background')
                 return VizManager.generate_matplotlib_fig(dp, t, x, y)
             def _mpl_ok(r):
@@ -302,9 +303,8 @@ class DataExplorerApp(QMainWindow):
         if on_success: worker.result_ready.connect(on_success)
         worker.error_occurred.connect(lambda m: QMessageBox.critical(self, "Engine Error", m))
         if on_status: worker.status_update.connect(on_status)
-        worker.finished.connect(lambda: self.setEnabled(True))
         worker.finished.connect(lambda: self.workers.remove(worker) if worker in self.workers else None)
-        self.workers.append(worker); self.setEnabled(False); worker.start()
+        self.workers.append(worker); worker.start()
 
     def update_explorer(self):
         self.explorer_tree.clear()
