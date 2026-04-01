@@ -103,7 +103,9 @@ class DataExplorerApp(QMainWindow):
         self.insight_dock.setObjectName("InsightDock")
         self.insight_output = QTextEdit()
         self.insight_output.setReadOnly(True)
-        self.insight_output.setStyleSheet("font-family: 'Consolas', monospace; qproperty-placeholderText: '데이터를 로드하면 AI가 분석한 결과를 보여줍니다.';")
+        self.insight_output.setPlaceholderText("데이터를 로드하면 AI가 분석한 결과를 보여줍니다.")
+        self.insight_output.setStyleSheet("font-family: 'Consolas', monospace;")
+        self.insight_output.setMinimumHeight(150)
         self.insight_dock.setWidget(self.insight_output)
         self.addDockWidget(Qt.RightDockWidgetArea, self.insight_dock)
 
