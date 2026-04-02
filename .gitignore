@@ -150,3 +150,12 @@ cython_debug/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# --- Datamixer Enterprise Specifics ---
+# Sensitive Browser Profile (Cookies, Sessions)
+browser_enterprise_profile/
+
+# Jupyter Workspace Temp Data
+notebooks/*.parquet
+notebooks/.ipynb_checkpoints/
+last_loaded_data.parquet
