@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QHeaderView, QTextEdit, QDockWidget, QTreeWidget,
     QTreeWidgetItem, QToolBar, QStatusBar, QFrame
 )
-from PySide6.QtCore import Qt, QUrl, QSize, QByteArray
+from PySide6.QtCore import Qt, QUrl, QSize, QByteArray, QTimer
 from PySide6.QtGui import QPalette, QColor
 
 # Internal imports
@@ -27,11 +27,12 @@ from .settings import SettingsDialog
 from .repl import JupyterConsoleManager
 from .intelligence.core import IntelligenceCore
 from .theme import ThemeManager
+from .jupyter_manager import JupyterServerManager
 
 class DataExplorerApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Datamixer Enterprise - High-Performance AI Hub V7")
+        self.setWindowTitle("Datamixer Enterprise - Ultimate AI Hub V7 (Jupyter Integrated)")
         self.resize(1600, 1000)
         self.setAcceptDrops(True)
         
@@ -49,8 +50,10 @@ class DataExplorerApp(QMainWindow):
         # Force Apply Premium Theme Manager
         ThemeManager.apply_theme(self.app_settings.get("theme", "Dark"))
         
-        # Jupyter Controller
-        self.jupyter = JupyterConsoleManager(self)
+        # Jupyter Hub & Notebook Server
+        self.jupyter_console = JupyterConsoleManager(self)
+        self.jupyter_server = JupyterServerManager()
+        self.jupyter_server.start()
         
         self.init_ui()
         self.init_menu_and_toolbar()
@@ -58,10 +61,12 @@ class DataExplorerApp(QMainWindow):
         # Engine State
         self.engine_mode = "Polars" 
         self.viz_lib = "Plotly"
-        self.status_label.setText("Datamixer Enterprise AI HUB V7 Online - Parallel Engine")
+        self.status_label.setText("Enterprise AI HUB V7 - Jupyter 워크벤치 활성")
 
     def closeEvent(self, event):
-        if hasattr(self, 'jupyter'): self.jupyter.shutdown()
+        """Clean shutdown of kernels and server."""
+        if hasattr(self, 'jupyter_console'): self.jupyter_console.shutdown()
+        if hasattr(self, 'jupyter_server'): self.jupyter_server.stop()
         super().closeEvent(event)
 
     def init_ui(self):
@@ -71,90 +76,70 @@ class DataExplorerApp(QMainWindow):
         
         # 1. Grid Viewer
         self.view_tab = QWidget()
-        vk = QVBoxLayout(self.view_tab)
-        self.table_view = QTableView()
+        vk = QVBoxLayout(self.view_tab); self.table_view = QTableView()
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.table_view.setAlternatingRowColors(True)
-        self.table_view.verticalHeader().setVisible(False)
+        self.table_view.setAlternatingRowColors(True); self.table_view.verticalHeader().setVisible(False)
         vk.addWidget(self.table_view)
-        self.central_tabs.addTab(self.view_tab, "지능형 분석 그리드 (Grid)")
+        self.central_tabs.addTab(self.view_tab, "지능형 분석 그리드")
         
-        # 2. Visualizer
+        # 2. Visualizer Tab
         self.viz_container = QWidget()
         vz = QVBoxLayout(self.viz_container)
-        self.browser = QWebEngineView()
-        self.browser.page().setBackgroundColor(QColor("#1a1b26")) 
-        self.static_canvas_container = QWidget()
-        self.static_canvas_layout = QVBoxLayout(self.static_canvas_container)
-        vz.addWidget(self.browser)
-        vz.addWidget(self.static_canvas_container)
+        self.browser = QWebEngineView(); self.browser.page().setBackgroundColor(QColor("#1a1b26")) 
+        self.static_canvas_container = QWidget(); self.static_canvas_layout = QVBoxLayout(self.static_canvas_container)
+        vz.addWidget(self.browser); vz.addWidget(self.static_canvas_container)
         self.static_canvas_container.hide()
-        self.central_tabs.addTab(self.viz_container, "시각 분석 리포트 (Visuals)")
+        self.central_tabs.addTab(self.viz_container, "시각 결과 리포트")
+        
+        # 3. Full Jupyter Notebook Workbench (New!)
+        self.jupyter_wb_tab = QWidget()
+        wj = QVBoxLayout(self.jupyter_wb_tab)
+        self.wb_browser = QWebEngineView()
+        # Wait a bit before loading to allow server startup
+        QTimer.singleShot(2000, lambda: self.wb_browser.setUrl(QUrl(self.jupyter_server.url)))
+        wj.addWidget(self.wb_browser)
+        self.central_tabs.addTab(self.jupyter_wb_tab, "주피터 워크벤치 (Workbench)")
         
         self.setup_docks()
         
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
-        self.status_label = QLabel("SYSTEM IDLE")
-        self.status_bar.addWidget(self.status_label)
+        self.status_bar = QStatusBar(); self.setStatusBar(self.status_bar)
+        self.status_label = QLabel("SYSTEM IDLE"); self.status_bar.addWidget(self.status_label)
 
     def setup_docks(self):
-        # Explorer
-        self.explorer_dock = QDockWidget("Workspace 변수 탐색기", self)
-        self.explorer_tree = QTreeWidget()
-        self.explorer_tree.setHeaderLabels(["변수명", "형태", "메모리 점유"])
-        self.explorer_tree.itemClicked.connect(self.on_variable_clicked)
-        self.explorer_tree.setIndentation(15)
-        self.explorer_dock.setWidget(self.explorer_tree)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.explorer_dock)
+        self.explorer_dock = QDockWidget("변수 탐색기", self)
+        self.explorer_tree = QTreeWidget(); self.explorer_tree.setHeaderLabels(["변수명", "형태", "메모리"])
+        self.explorer_tree.itemClicked.connect(self.on_variable_clicked); self.explorer_tree.setIndentation(15)
+        self.explorer_dock.setWidget(self.explorer_tree); self.addDockWidget(Qt.LeftDockWidgetArea, self.explorer_dock)
         
-        # AI Insight (Restored)
-        self.insight_dock = QDockWidget("AI 지능형 분석 리포트 (Patterns)", self)
+        self.insight_dock = QDockWidget("AI 인사이트 리포트", self)
         self.insight_output = QTextEdit(); self.insight_output.setReadOnly(True)
-        self.insight_output.setPlaceholderText("데이터 로드 대기 중... AI 엔진이 병렬 분석을 탐지합니다.")
         self.insight_output.setStyleSheet("font-family: 'Cascadia Code', 'Consolas'; background-color: #1a1b26;")
-        self.insight_dock.setWidget(self.insight_output)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.insight_dock)
+        self.insight_dock.setWidget(self.insight_output); self.addDockWidget(Qt.RightDockWidgetArea, self.insight_dock)
 
-        # Jupyter Console
-        self.console_dock = QDockWidget("Jupyter 고급 연산 터미널", self)
-        self.console_dock.setWidget(self.jupyter.widget)
-        self.addDockWidget(Qt.BottomDockWidgetArea, self.console_dock)
+        self.console_dock = QDockWidget("Jupyter 연산 허브 (Console)", self)
+        self.console_dock.setWidget(self.jupyter_console.widget); self.addDockWidget(Qt.BottomDockWidgetArea, self.console_dock)
         
-        # Toolbox
-        self.props_dock = QDockWidget("분석 코어 툴킷", self)
-        self.setup_props_panel()
-        self.props_dock.setWidget(self.props_container)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.props_dock, Qt.Vertical)
+        self.props_dock = QDockWidget("코어 컨트롤", self)
+        self.setup_props_panel(); self.props_dock.setWidget(self.props_container); self.addDockWidget(Qt.RightDockWidgetArea, self.props_dock, Qt.Vertical)
 
     def setup_props_panel(self):
-        self.props_container = QWidget()
-        layout = QVBoxLayout(self.props_container)
-        
-        info_group = QGroupBox("매핑 스키마 (Detailed Schema)")
-        self.info_v = QVBoxLayout(info_group)
-        self.lbl_data_info = QLabel("데이터를 로드해 주세요.")
-        self.lbl_data_info.setWordWrap(True)
-        self.lbl_data_info.setStyleSheet("color: #7aa2f7; font-weight: bold;")
-        self.info_v.addWidget(self.lbl_data_info)
+        self.props_container = QWidget(); layout = QVBoxLayout(self.props_container)
+        info_group = QGroupBox("매핑 스키마"); self.info_v = QVBoxLayout(info_group)
+        self.lbl_data_info = QLabel("데이터 대기 중..."); self.lbl_data_info.setWordWrap(True)
+        self.lbl_data_info.setStyleSheet("color: #7aa2f7; font-weight: bold;"); self.info_v.addWidget(self.lbl_data_info)
         layout.addWidget(info_group)
-
-        viz_group = QGroupBox("시각화 컨트롤")
-        vf = QFormLayout(viz_group); self.combo_plot_type = QComboBox()
+        viz_group = QGroupBox("시각화 컨트롤"); vf = QFormLayout(viz_group); self.combo_plot_type = QComboBox()
         self.combo_plot_type.addItems(["히스토그램", "산점도", "박스 플롯", "히트맵", "선 그래프"])
-        vf.addRow("그래프 종류:", self.combo_plot_type)
-        self.combo_x = QComboBox(); self.combo_y = QComboBox()
-        vf.addRow("X축 선택:", self.combo_x); vf.addRow("Y축 선택:", self.combo_y)
-        self.btn_plot = QPushButton("엔진 렌더링 실행"); self.btn_plot.clicked.connect(self.generate_plot_dispatch)
-        vf.addRow(self.btn_plot)
-        layout.addWidget(viz_group)
-        
+        vf.addRow("그래프 종류:", self.combo_plot_type); self.combo_x = QComboBox(); self.combo_y = QComboBox()
+        vf.addRow("X축:", self.combo_x); vf.addRow("Y축:", self.combo_y)
+        self.btn_plot = QPushButton("엔진 실행"); self.btn_plot.clicked.connect(self.generate_plot_dispatch)
+        vf.addRow(self.btn_plot); layout.addWidget(viz_group)
         layout.addStretch()
 
     def init_menu_and_toolbar(self):
         menubar = self.menuBar(); file_menu = menubar.addMenu("파일 (&F)")
         for name, callback in [
-            ("데이터 불러오기...", self.load_data_async), ("프로젝트 저장...", self.save_project),
+            ("데이터 로드...", self.load_data_async), ("프로젝트 저장...", self.save_project),
             ("프로젝트 열기...", self.load_project), (None, None),
             ("지능형 설정...", self.open_settings), (None, None), ("종료", self.close)
         ]:
@@ -168,12 +153,7 @@ class DataExplorerApp(QMainWindow):
         if diag.exec(): 
             self.app_settings = diag.get_settings()
             ThemeManager.apply_theme(self.app_settings["theme"])
-            self.status_label.setText("지능형 설정 저장됨.")
-
-    def update_viz_lib(self, text):
-        self.viz_lib = "Plotly" if "Plotly" in text else "Matplotlib"
-        if self.viz_lib == "Plotly": self.browser.show(); self.static_canvas_container.hide()
-        else: self.browser.hide(); self.static_canvas_container.show()
+            self.status_label.setText("설정 업데이트됨.")
 
     def load_data_file_async(self, file_path):
         def _task():
@@ -187,86 +167,25 @@ class DataExplorerApp(QMainWindow):
             var_name = os.path.basename(file_path).replace(".", "_")
             self.variables[var_name] = df; self.df = df
             self.update_explorer(); self.update_table(); self.update_viz_combos(); self.display_data_mapping(df, encoding)
-            self.jupyter.update_namespace()
-            self.status_label.setText(f"데이터 즉시 로드 완료: {file_path}")
+            self.jupyter_console.update_namespace()
+            # SYNC: Auto-save scratch for Workbench
+            scratch = os.path.join(self.jupyter_server.notebook_dir, "last_loaded_data.parquet")
+            df.to_parquet(scratch, index=False)
+            self.status_label.setText(f"SUCCESS: {file_path}")
             if self.app_settings["auto_analysis"]:
                 self.start_worker(lambda: IntelligenceCore.analyze_full_profile(df), on_success=self.on_intelligence_finished)
 
-        self.start_worker(_task, on_success=_on_success, on_status=lambda _: self.status_label.setText("데이터 지능형 로딩 중..."))
+        self.start_worker(_task, on_status=lambda _: self.status_label.setText("지능형 로드 중..."))
 
     def on_intelligence_finished(self, report):
+        """Handle AI analysis and suggestion in a premium dock."""
         txt = "<b>[지능형 데이터 분석 보고서 - AI CORE V7]</b><br><br>"
         for insight in report["insights"]: txt += f"<span style='color: #7aa2f7;'>▶</span> {insight}<br><br>"
         self.insight_output.setHtml(txt)
         if report["suggestions"]:
-            best = report["suggestions"][0]
-            self.combo_plot_type.setCurrentText(best["type"])
-            self.combo_x.setCurrentText(best["x"])
-            if best["y"]: self.combo_y.setCurrentText(best["y"])
+            best = report["suggestions"][0]; self.combo_plot_type.setCurrentText(best["type"])
+            self.combo_x.setCurrentText(best["x"]); if best["y"]: self.combo_y.setCurrentText(best["y"])
             self.generate_plot_dispatch()
-            self.status_label.setText(f"AI 코어 분석 완료: {best['desc']} 시각화 제안.")
-
-    def display_data_mapping(self, df, encoding):
-        """Update schema mapping with interactive tooltips."""
-        # Help text for encodings
-        help_map = {
-            "utf-8": "가장 표준적이고 권장되는 다국어 인코딩입니다.",
-            "cp949": "한국어 전용 인코딩(ANSI)으로, 오래된 엑셀/CSV에서 주로 쓰입니다.",
-            "euc-kr": "표준 한국어 인코딩이지만, 현대 데이터에선 cp949가 더 흔합니다.",
-            "utf-8-sig": "BOM이 포함된 UTF-8로, 엑셀에서 한글이 깨질 때 주로 사용합니다."
-        }
-        tip = help_map.get(encoding.lower(), "자동 감지된 데이터 인코딩 형식입니다.")
-        
-        info = f"<b>Encoding:</b> <span style='color: #9ece6a;'>{encoding}</span> "
-        info += f"<span style='color: #7aa2f7; font-weight: bold;'>[?]</span><br>"
-        info += f"<b>Shape:</b> <span style='color: #7aa2f7;'>{df.shape[0]:,} row x {df.shape[1]:,} col</span><br><br>"
-        info += "<b>Schema Mapping:</b><br>"
-        for col in df.columns:
-            info += f"- {col}: <span style='color: #e0af68;'>{str(df[col].dtype)}</span><br>"
-        
-        self.lbl_data_info.setText(info)
-        self.lbl_data_info.setToolTip(f"<b>[Engine Analysis]</b><br>{tip}")
-
-    def load_data_async(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Import Data", "", "Data Files (*.csv *.xlsx *.xls)")
-        if p: self.load_data_file_async(p)
-
-    def smart_save_project(self, path):
-        ui = {
-            "Geometry": self.saveGeometry().toHex().data().decode(),
-            "State": self.saveState().toHex().data().decode(),
-            "VizLib": self.viz_lib, "SelectedTab": self.central_tabs.currentIndex()
-        }
-        success, msg = SessionManager.save_project(path, self.variables, ui, self.app_settings["compress"])
-        if success: self.status_label.setText(msg)
-        else: QMessageBox.critical(self, "저장 오류", msg)
-
-    def save_project(self):
-        p, _ = QFileDialog.getSaveFileName(self, "Save Project", "", "Project (*.dmx)")
-        if p: self.smart_save_project(p)
-
-    def load_project(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Open Project", "", "Project (*.dmx)")
-        if p: self.load_project_file(p)
-
-    def load_project_file(self, p):
-        s, r = SessionManager.load_project(p)
-        if s:
-            self.variables = r["variables"]; self.update_explorer(); ui = r["ui_state"]
-            if "Geometry" in ui: self.restoreGeometry(QByteArray.fromHex(ui["Geometry"].encode()))
-            if "State" in ui: self.restoreState(QByteArray.fromHex(ui["State"].encode()))
-            if "VizLib" in ui: self.combo_lib.setCurrentText(ui["VizLib"])
-            self.status_label.setText(f"세션 복구 완료: {os.path.basename(p)}")
-        else: QMessageBox.critical(self, "로드 오류", r)
-
-    def on_variable_clicked(self, item):
-        vn = item.text(0); self.df = self.variables[vn]; self.update_table(); self.update_viz_combos()
-
-    def update_table(self):
-        if not self.df.empty: self.table_view.setModel(PandasModel(self.df))
-
-    def update_viz_combos(self):
-        cols = list(self.df.columns); self.combo_x.clear(); self.combo_y.clear(); self.combo_x.addItems(cols); self.combo_y.addItems(cols)
 
     def generate_plot_dispatch(self):
         if self.df.empty: return
@@ -286,10 +205,46 @@ class DataExplorerApp(QMainWindow):
                     self.static_canvas_layout.addWidget(FigureCanvas(r[0]))
             self.start_worker(_mpl, on_success=_mpl_ok)
 
+    def display_data_mapping(self, df, encoding):
+        info = f"<b>Encoding:</b> <span style='color: #9ece6a;'>{encoding}</span><br>"
+        info += f"<b>Shape:</b> <span style='color: #7aa2f7;'>{df.shape[0]:,} row x {df.shape[1]:,} col</span><br><br>"
+        info += "<b>Schema Mapping:</b><br>"
+        for col in df.columns: info += f"- {col}: <span style='color: #e0af68;'>{str(df[col].dtype)}</span><br>"
+        self.lbl_data_info.setText(info)
+
+    def load_data_async(self):
+        p, _ = QFileDialog.getOpenFileName(self, "Import Data", "", "Data Files (*.csv *.xlsx *.xls)")
+        if p: self.load_data_file_async(p)
+
+    def save_project(self):
+        p, _ = QFileDialog.getSaveFileName(self, "Save Project", "", "Project (*.dmx)")
+        if p:
+            ui = {"Geometry": self.saveGeometry().toHex().data().decode(), "State": self.saveState().toHex().data().decode()}
+            success, msg = SessionManager.save_project(p, self.variables, ui, self.app_settings["compress"])
+            if success: self.status_label.setText(msg)
+            else: QMessageBox.critical(self, "저장 오류", msg)
+
+    def load_project(self):
+        p, _ = QFileDialog.getOpenFileName(self, "Open Project", "", "Project (*.dmx)")
+        if p: self.load_project_file(p)
+
+    def load_project_file(self, p):
+        s, r = SessionManager.load_project(p)
+        if s: self.variables = r["variables"]; self.update_explorer(); self.status_label.setText(f"세션 복원됨: {os.path.basename(p)}")
+        else: QMessageBox.critical(self, "로드 오류", r)
+
+    def on_variable_clicked(self, item):
+        vn = item.text(0); self.df = self.variables[vn]; self.update_table(); self.update_viz_combos()
+
+    def update_table(self):
+        if not self.df.empty: self.table_view.setModel(PandasModel(self.df))
+
+    def update_viz_combos(self):
+        cols = list(self.df.columns); self.combo_x.clear(); self.combo_y.clear(); self.combo_x.addItems(cols); self.combo_y.addItems(cols)
+
     def start_worker(self, func, *args, on_success=None, on_status=None, **kwargs):
         worker = GenericWorker(func, *args, **kwargs)
         if on_success: worker.result_ready.connect(on_success)
-        worker.error_occurred.connect(lambda m: QMessageBox.critical(self, "시스템 엔진 오류", m))
         if on_status: worker.status_update.connect(on_status)
         worker.finished.connect(lambda: self.workers.remove(worker) if worker in self.workers else None)
         self.workers.append(worker); worker.start()
