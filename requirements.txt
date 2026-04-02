@@ -4,3 +4,5 @@ matplotlib
 seaborn
 PySide6
 openpyxl
+qtconsole
+ipykernel

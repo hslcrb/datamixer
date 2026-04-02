@@ -24,7 +24,7 @@ from .engine import DataEngine
 from .session import SessionManager
 from .viz_manager import VizManager
 from .settings import SettingsDialog
-from .repl import ReplHandler
+from .repl import JupyterConsoleManager
 from .theme import ThemeManager
 
 class DataExplorerApp(QMainWindow):
@@ -46,7 +46,7 @@ class DataExplorerApp(QMainWindow):
         }
         
         # Core Handlers
-        self.repl = ReplHandler(self)
+        self.jupyter = JupyterConsoleManager(self)
         
         self.init_ui()
         self.init_menu_and_toolbar()
@@ -57,6 +57,11 @@ class DataExplorerApp(QMainWindow):
         # Engine State
         self.viz_lib = "Plotly"
         self.status_label.setText("Datamixer Ready")
+
+    def closeEvent(self, event):
+        if hasattr(self, 'jupyter'):
+            self.jupyter.shutdown()
+        super().closeEvent(event)
 
     def apply_premium_theme(self):
         """Force apply premium dark theme and ensure no default white leaks."""
@@ -168,16 +173,7 @@ class DataExplorerApp(QMainWindow):
     def setup_cli_tab(self):
         self.cli_container = QWidget()
         cl = QVBoxLayout(self.cli_container)
-        self.cli_output = QTextEdit(); self.cli_output.setReadOnly(True)
-        self.cli_output.setStyleSheet("font-family: 'Cascadia Code', 'Consolas'; font-size: 11pt; border: none;")
-        cl.addWidget(self.cli_output)
-        
-        il = QHBoxLayout()
-        self.cli_input = QLineEdit(); self.cli_input.setPlaceholderText("명령어/슬래시 명령 입력 (/help)")
-        self.cli_input.returnPressed.connect(self.execute_cli)
-        self.btn_exec = QPushButton("ENTER"); self.btn_exec.clicked.connect(self.execute_cli)
-        il.addWidget(self.cli_input); il.addWidget(self.btn_exec)
-        cl.addLayout(il)
+        cl.addWidget(self.jupyter.widget)
 
     def init_menu_and_toolbar(self):
         menubar = self.menuBar(); file_menu = menubar.addMenu("파일 (&F)")
@@ -213,6 +209,7 @@ class DataExplorerApp(QMainWindow):
             var_name = os.path.basename(file_path).replace(".", "_")
             self.variables[var_name] = df; self.df = df
             self.update_explorer(); self.update_table(); self.update_viz_combos(); self.display_data_mapping(df, encoding)
+            self.jupyter.update_namespace()
             self.status_label.setText(f"데이터 로드 완료: {file_path}")
 
 
@@ -283,14 +280,6 @@ class DataExplorerApp(QMainWindow):
                     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
                     self.static_canvas_layout.addWidget(FigureCanvas(r[0]))
             self.start_worker(_mpl, on_success=_mpl_ok)
-
-    def execute_cli(self):
-        t = self.cli_input.text()
-        if not t: return
-        self.cli_output.append(f"<b style='color: #7aa2f7;'>>>> {t}</b>")
-        res = self.repl.process_input(t)
-        if res: self.cli_output.append(f"<span style='color: #c0caf5;'>{res}</span>")
-        self.cli_input.clear(); self.cli_output.ensureCursorVisible(); self.update_explorer(); self.update_table()
 
     def start_worker(self, func, *args, on_success=None, on_status=None, **kwargs):
         worker = GenericWorker(func, *args, **kwargs)
