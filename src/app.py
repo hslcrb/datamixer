@@ -183,8 +183,11 @@ class DataExplorerApp(QMainWindow):
         for insight in report["insights"]: txt += f"<span style='color: #7aa2f7;'>▶</span> {insight}<br><br>"
         self.insight_output.setHtml(txt)
         if report["suggestions"]:
-            best = report["suggestions"][0]; self.combo_plot_type.setCurrentText(best["type"])
-            self.combo_x.setCurrentText(best["x"]); if best["y"]: self.combo_y.setCurrentText(best["y"])
+            best = report["suggestions"][0]
+            self.combo_plot_type.setCurrentText(best["type"])
+            self.combo_x.setCurrentText(best["x"])
+            if best["y"]:
+                self.combo_y.setCurrentText(best["y"])
             self.generate_plot_dispatch()
 
     def generate_plot_dispatch(self):
