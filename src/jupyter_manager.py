@@ -1,32 +1,46 @@
 import subprocess
 import os
-import time
+import sys
 import socket
-import threading
+import darkdetect
 
 class JupyterServerManager:
-    """Manages an external Jupyter Lab server for embedding."""
+    """Manages an external Jupyter Lab server with system theme awareness."""
     def __init__(self, port=18888, notebook_dir="notebooks"):
         self.port = port
         self.notebook_dir = notebook_dir
         self.process = None
         self.token = "datamixer_secret_token"
-        self.url = f"http://localhost:{self.port}/lab?token={self.token}"
         
         if not os.path.exists(self.notebook_dir):
             os.makedirs(self.notebook_dir)
+
+    @property
+    def url(self):
+        return f"http://localhost:{self.port}/lab?token={self.token}"
 
     def is_port_in_use(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             return s.connect_ex(('localhost', self.port)) == 0
 
-    def start(self):
-        """Starts the Jupyter Lab server in a background process."""
+    def get_effective_theme(self, app_theme_setting="Dark"):
+        """Detect system theme if setting is 'Auto' or fixed otherwise."""
+        if app_theme_setting.lower() == "light":
+            return "JupyterLab Light"
+        elif app_theme_setting.lower() == "dark":
+            return "JupyterLab Dark"
+        
+        # If 'Auto', check system
+        return "JupyterLab Dark" if darkdetect.isDark() else "JupyterLab Light"
+
+    def start(self, app_theme="Dark"):
+        """Starts Jupyter Lab using the correct theme based on app/system state."""
         if self.is_port_in_use():
-            print(f"Port {self.port} already in use. Assuming server is running.")
+            print(f"Port {self.port} already in use.")
             return
 
-        import sys
+        target_theme = self.get_effective_theme(app_theme)
+        
         cmd = [
             sys.executable, "-m", "jupyter", "lab",
             "--no-browser",
@@ -35,20 +49,20 @@ class JupyterServerManager:
             f"--ServerApp.token={self.token}",
             "--ServerApp.password=''",
             "--ServerApp.allow_origin='*'",
-            "--ServerApp.disable_check_xsrf=True"
+            "--ServerApp.disable_check_xsrf=True",
+            # Injecting theme settings via command line for first launch
+            f"--LabApp.default_theme={target_theme}"
         ]
         
-        # Use subprocess.DEVNULL to avoid blocking with output buffers
         self.process = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         )
-        print(f"Jupyter Lab server starting on port {self.port}...")
+        print(f"Jupyter Lab server starting with theme '{target_theme}' on port {self.port}...")
 
     def stop(self):
-        """Terminates the Jupyter server."""
         if self.process:
             self.process.terminate()
             self.process.wait()

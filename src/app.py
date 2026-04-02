@@ -88,11 +88,10 @@ class DataExplorerApp(QMainWindow):
         
         # Force Apply Premium Theme Manager
         ThemeManager.apply_theme(self.app_settings.get("theme", "Dark"))
-        
-        # Core Handlers
+        # Jupyter Hub & Notebook Server
         self.jupyter_console = JupyterConsoleManager(self)
         self.jupyter_server = JupyterServerManager()
-        self.jupyter_server.start()
+        self.jupyter_server.start(self.app_settings.get("theme", "Auto"))
         
         self.init_ui()
         self.init_menu_and_toolbar()
