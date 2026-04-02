@@ -207,11 +207,25 @@ class DataExplorerApp(QMainWindow):
             self.status_label.setText(f"AI 코어 분석 완료: {best['desc']} 시각화 제안.")
 
     def display_data_mapping(self, df, encoding):
-        info = f"<b>Encoding:</b> <span style='color: #9ece6a;'>{encoding}</span><br>"
+        """Update schema mapping with interactive tooltips."""
+        # Help text for encodings
+        help_map = {
+            "utf-8": "가장 표준적이고 권장되는 다국어 인코딩입니다.",
+            "cp949": "한국어 전용 인코딩(ANSI)으로, 오래된 엑셀/CSV에서 주로 쓰입니다.",
+            "euc-kr": "표준 한국어 인코딩이지만, 현대 데이터에선 cp949가 더 흔합니다.",
+            "utf-8-sig": "BOM이 포함된 UTF-8로, 엑셀에서 한글이 깨질 때 주로 사용합니다."
+        }
+        tip = help_map.get(encoding.lower(), "자동 감지된 데이터 인코딩 형식입니다.")
+        
+        info = f"<b>Encoding:</b> <span style='color: #9ece6a;'>{encoding}</span> "
+        info += f"<span style='color: #7aa2f7; font-weight: bold;'>[?]</span><br>"
         info += f"<b>Shape:</b> <span style='color: #7aa2f7;'>{df.shape[0]:,} row x {df.shape[1]:,} col</span><br><br>"
         info += "<b>Schema Mapping:</b><br>"
-        for col in df.columns: info += f"- {col}: <span style='color: #e0af68;'>{str(df[col].dtype)}</span><br>"
+        for col in df.columns:
+            info += f"- {col}: <span style='color: #e0af68;'>{str(df[col].dtype)}</span><br>"
+        
         self.lbl_data_info.setText(info)
+        self.lbl_data_info.setToolTip(f"<b>[Engine Analysis]</b><br>{tip}")
 
     def load_data_async(self):
         p, _ = QFileDialog.getOpenFileName(self, "Import Data", "", "Data Files (*.csv *.xlsx *.xls)")
