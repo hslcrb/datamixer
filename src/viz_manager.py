@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 class VizManager:
-    """Enterprise visualization dispatcher with Dark Mode support."""
+    """Visualization dispatcher."""
     
     @staticmethod
     def generate_plotly_html(df, plot_type, x, y):

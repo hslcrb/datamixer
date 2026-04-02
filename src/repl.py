@@ -6,7 +6,7 @@ import plotly.express as px
 import os
 
 class ReplHandler:
-    """Enterprise-grade REPL & Slash Command Handler."""
+    """Data REPL & Command Handler."""
     def __init__(self, main_app):
         self.app = main_app
         self.commands = {
@@ -63,7 +63,7 @@ class ReplHandler:
 
     def cmd_help(self, args):
         help_text = """
-        <b><span style='color: #2e7d32;'>[Datamixer Enterprise CLI Help]</span></b><br>
+        <b><span style='color: #2e7d32;'>[Datamixer CLI Help]</span></b><br>
         /help - 이 도움말을 표시합니다.<br>
         /load [파일경로] - 파일에서 데이터를 로드합니다.<br>
         /save [파일경로] - 현재 프로젝트를 .dmx 파일로 저장합니다.<br>

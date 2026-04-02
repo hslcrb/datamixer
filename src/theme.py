@@ -1,5 +1,5 @@
 class ThemeManager:
-    """Enterprise Ultra-Dark (Tokyo Night - Storm) Theme for Datamixer."""
+    """Dark Theme for Datamixer."""
     
     @staticmethod
     def get_dark_style():

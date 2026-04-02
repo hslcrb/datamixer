@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
 class SessionManager:
-    """Enterprise project persistence (Smart ZIP + XML package)."""
+    """Project session manager (ZIP + XML package)."""
     
     @staticmethod
     def save_project(path, variables, ui_state, compress=True):
@@ -43,7 +43,7 @@ class SessionManager:
                 
                 with open(path, 'wb') as f:
                     f.write(buffer.getvalue())
-                return True, "압축된 Enterprise 프로젝트 저장 완료 (.dmx)"
+                return True, "압축된 프로젝트 저장 완료 (.dmx)"
             
             else:
                 # 2. Uncompressed Single XML Path
