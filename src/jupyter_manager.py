@@ -26,8 +26,9 @@ class JupyterServerManager:
             print(f"Port {self.port} already in use. Assuming server is running.")
             return
 
+        import sys
         cmd = [
-            "python", "-m", "jupyter", "lab",
+            sys.executable, "-m", "jupyter", "lab",
             "--no-browser",
             f"--port={self.port}",
             f"--notebook-dir={self.notebook_dir}",
@@ -37,11 +38,11 @@ class JupyterServerManager:
             "--ServerApp.disable_check_xsrf=True"
         ]
         
-        # Use subprocess.Popen to avoid blocking
+        # Use subprocess.DEVNULL to avoid blocking with output buffers
         self.process = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         )
         print(f"Jupyter Lab server starting on port {self.port}...")
