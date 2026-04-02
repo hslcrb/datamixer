@@ -37,7 +37,10 @@ class SettingsDialog(QDialog):
         self.spin_font.setRange(8, 20)
         self.spin_font.setValue(self.settings.get("font_size", 10))
         app_layout.addRow("시스템 전역 폰트 크기:", self.spin_font)
-        app_layout.addRow(QLabel("테마: Dark (고정)"))
+        self.combo_theme = QComboBox()
+        self.combo_theme.addItems(["Dark", "Light", "Auto"])
+        self.combo_theme.setCurrentText(self.settings.get("theme", "Dark"))
+        app_layout.addRow("테마:", self.combo_theme)
         layout.addWidget(app_group)
 
         # Buttons
@@ -54,6 +57,6 @@ class SettingsDialog(QDialog):
     def get_settings(self):
         return {
             "compress": self.cb_compress.isChecked(),
-            "theme": "Dark",
+            "theme": self.combo_theme.currentText(),
             "font_size": self.spin_font.value()
         }

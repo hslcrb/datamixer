@@ -64,22 +64,8 @@ class DataExplorerApp(QMainWindow):
         super().closeEvent(event)
 
     def apply_premium_theme(self):
-        """Force apply premium dark theme and ensure no default white leaks."""
-        style = ThemeManager.get_dark_style()
-        self.setStyleSheet(style)
-        # Ensure palette is also dark for native dialogs
-        palette = QPalette()
-        palette.setColor(QPalette.Window, QColor("#1a1b26"))
-        palette.setColor(QPalette.WindowText, QColor("#c0caf5"))
-        palette.setColor(QPalette.Base, QColor("#24283b"))
-        palette.setColor(QPalette.AlternateBase, QColor("#1a1b26"))
-        palette.setColor(QPalette.ToolTipBase, QColor("#1a1b26"))
-        palette.setColor(QPalette.ToolTipText, QColor("#c0caf5"))
-        palette.setColor(QPalette.Text, QColor("#c0caf5"))
-        palette.setColor(QPalette.Button, QColor("#414868"))
-        palette.setColor(QPalette.ButtonText, QColor("#c0caf5"))
-        palette.setColor(QPalette.Highlight, QColor("#7aa2f7"))
-        self.setPalette(palette)
+        """Force apply premium theme."""
+        ThemeManager.apply_theme(self.app_settings.get("theme", "Dark"))
 
     def init_ui(self):
         self.setDockNestingEnabled(True)
@@ -190,7 +176,10 @@ class DataExplorerApp(QMainWindow):
 
     def open_settings(self):
         diag = SettingsDialog(self, self.app_settings)
-        if diag.exec(): self.app_settings = diag.get_settings(); self.status_label.setText("설정 업데이트됨.")
+        if diag.exec(): 
+            self.app_settings = diag.get_settings()
+            ThemeManager.apply_theme(self.app_settings["theme"])
+            self.status_label.setText("설정 업데이트됨.")
 
     def update_viz_lib(self, text):
         self.viz_lib = "Plotly" if "Plotly" in text else "Matplotlib"

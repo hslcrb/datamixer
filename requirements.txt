@@ -6,3 +6,6 @@ PySide6
 openpyxl
 qtconsole
 ipykernel
+plotly
+pyarrow
+pyqt-darktheme
