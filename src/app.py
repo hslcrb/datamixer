@@ -149,27 +149,56 @@ class DataExplorerApp(QMainWindow):
         viz_group = QGroupBox("시각화 컨트롤"); vfl = QFormLayout(viz_group); self.combo_plot_type = QComboBox(); self.combo_plot_type.addItems(["히스토그램", "산점도", "박스 플롯", "히트맵", "선 그래프"]); vfl.addRow("그래프:", self.combo_plot_type); self.combo_x = QComboBox(); self.combo_y = QComboBox(); vfl.addRow("X:", self.combo_x); vfl.addRow("Y:", self.combo_y); self.btn_plot = QPushButton("엔진 실행"); self.btn_plot.clicked.connect(self.generate_plot_dispatch); vfl.addRow(self.btn_plot); layout.addWidget(viz_group); layout.addStretch()
 
     def init_menu_and_toolbar(self):
-        m = self.menuBar(); f = m.addMenu("파일 (&F)"); f.addAction("데이터 로드...").triggered.connect(self.load_data_async); f.addAction("설정...").triggered.connect(self.open_settings); f.addAction("종료").triggered.connect(self.close)
-        t = QToolBar("ToolBox"); self.addToolBar(t); t.addWidget(QPushButton("환경 설정", clicked=self.open_settings))
+        m = self.menuBar()
+        f = m.addMenu("파일 (&F)")
+        f.addAction("데이터 로드...").triggered.connect(self.load_data_async)
+        f.addAction("설정...").triggered.connect(self.open_settings)
+        f.addAction("종료").triggered.connect(self.close)
+        t = QToolBar("ToolBox")
+        self.addToolBar(t)
+        t.addWidget(QPushButton("환경 설정", clicked=self.open_settings))
 
     def open_settings(self):
-        d = SettingsDialog(self, self.app_settings); 
-        if d.exec(): self.app_settings = d.get_settings(); ThemeManager.apply_theme(self.app_settings["theme"])
+        d = SettingsDialog(self, self.app_settings)
+        if d.exec():
+            self.app_settings = d.get_settings()
+            ThemeManager.apply_theme(self.app_settings["theme"])
 
     def load_data_file_async(self, p):
         def _task():
             enc = detect_encoding_parallel(p) if p.endswith(".csv") else "utf-8"
-            s, df, m = DataEngine.load_data(p, enc); return df, m, enc if s else None
+            s, df, m = DataEngine.load_data(p, enc)
+            return df, m, enc if s else None
+        
         def _ok(res):
             if not res: return
-            df, m, enc = res; self.df = df; self.variables[os.path.basename(p).replace(".","_")] = df; self.update_explorer(); self.update_table(); self.update_viz_combos(); self.display_data_mapping(df, enc)
-            self.jupyter_console.update_namespace(); df.to_parquet(os.path.join(self.jupyter_server.notebook_dir, "last_loaded_data.parquet"), index=False)
-            if self.app_settings["auto_analysis"]: self.start_worker(lambda: IntelligenceCore.analyze_full_profile(df), on_success=self.on_intelligence_finished)
+            df, m, enc = res
+            self.df = df
+            self.variables[os.path.basename(p).replace(".", "_")] = df
+            self.update_explorer()
+            self.update_table()
+            self.update_viz_combos()
+            self.display_data_mapping(df, enc)
+            self.jupyter_console.update_namespace()
+            df.to_parquet(os.path.join(self.jupyter_server.notebook_dir, "last_loaded_data.parquet"), index=False)
+            if self.app_settings["auto_analysis"]:
+                self.start_worker(lambda: IntelligenceCore.analyze_full_profile(df), on_success=self.on_intelligence_finished)
+        
         self.start_worker(_task, on_success=_ok, on_status=lambda s: self.status_label.setText(s))
 
     def on_intelligence_finished(self, r):
-        txt = "<b>[AI 허브 V7]</b><br><br>"; [txt := txt + f"▶ {i}<br>" for i in r["insights"]]; self.insight_output.setHtml(txt)
-        if r["suggestions"]: b = r["suggestions"][0]; self.combo_plot_type.setCurrentText(b["type"]); self.combo_x.setCurrentText(b["x"]); if b["y"]: self.combo_y.setCurrentText(b["y"]); self.generate_plot_dispatch()
+        txt = "<b>[AI 허브 V7]</b><br><br>"
+        for i in r["insights"]:
+            txt += f"▶ {i}<br>"
+        self.insight_output.setHtml(txt)
+        
+        if r["suggestions"]:
+            b = r["suggestions"][0]
+            self.combo_plot_type.setCurrentText(b["type"])
+            self.combo_x.setCurrentText(b["x"])
+            if b["y"]:
+                self.combo_y.setCurrentText(b["y"])
+            self.generate_plot_dispatch()
 
     def generate_plot_dispatch(self):
         if self.df.empty: return
@@ -177,10 +206,22 @@ class DataExplorerApp(QMainWindow):
         self.start_worker(lambda: VizManager.generate_plotly_html(dp, self.combo_plot_type.currentText(), self.combo_x.currentText(), self.combo_y.currentText()), on_success=lambda r: self.browser.setUrl(QUrl.fromLocalFile(r[0])))
 
     def display_data_mapping(self, df, e):
-        i = f"<b>Encoding:</b> {e} [<b>?</b>]<br><b>Shape:</b> {df.shape[0]:,} x {df.shape[1]:,}<br><b>Schema:</b><br>"; [i := i + f"- {c}: {str(df[c].dtype)}<br>" for c in df.columns]; self.lbl_data_info.setText(i)
+        help_map = {"utf-8": "표준형", "cp949": "한글 전용(Legacy)", "euc-kr": "한국 표준(Legacy)"}
+        tip = help_map.get(e.lower(), "자동 감지 인코딩")
+        
+        info = f"<b>Encoding:</b> {e} [<b>?</b>]<br>"
+        info += f"<b>Shape:</b> {df.shape[0]:,} x {df.shape[1]:,}<br>"
+        info += "<b>Schema:</b><br>"
+        for c in df.columns:
+            info += f"- {c}: {str(df[c].dtype)}<br>"
+        
+        self.lbl_data_info.setText(info)
+        self.lbl_data_info.setToolTip(f"<b>[Help]</b><br>{tip}")
 
     def load_data_async(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Load", "", "Data (*.csv *.xlsx)"); [self.load_data_file_async(p) if p else None]
+        p, _ = QFileDialog.getOpenFileName(self, "Load", "", "Data (*.csv *.xlsx)")
+        if p:
+            self.load_data_file_async(p)
 
     def on_variable_clicked(self, i): self.df = self.variables[i.text(0)]; self.update_table(); self.update_viz_combos()
     def update_table(self): [self.table_view.setModel(PandasModel(self.df)) if not self.df.empty else None]
