@@ -192,7 +192,7 @@ class DataExplorerApp(QMainWindow):
             if self.app_settings["auto_analysis"]:
                 self.start_worker(lambda: IntelligenceCore.analyze_full_profile(df), on_success=self.on_intelligence_finished)
 
-        self.start_worker(_task, on_status=lambda _: self.status_label.setText("데이터 지능형 로딩 중..."))
+        self.start_worker(_task, on_success=_on_success, on_status=lambda _: self.status_label.setText("데이터 지능형 로딩 중..."))
 
     def on_intelligence_finished(self, report):
         txt = "<b>[지능형 데이터 분석 보고서 - AI CORE V7]</b><br><br>"
