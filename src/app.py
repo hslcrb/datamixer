@@ -87,7 +87,7 @@ class MiniBrowser(QWidget):
         
         self.browser = QWebEngineView()
         self.page = QWebEnginePage(self.profile, self.browser)
-        self.browser.setPage(self.page); self.browser.setUrl(QUrl("https://www.google.com"))
+        self.browser.setPage(self.page); self.browser.setUrl(QUrl("https://www.acmicpc.net/"))
         self.browser.urlChanged.connect(lambda q: self.url_bar.setText(q.toString()))
         self.layout.addWidget(self.browser)
         
@@ -97,7 +97,7 @@ class MiniBrowser(QWidget):
 
     def navigate(self):
         u = self.url_bar.text()
-        if not ("." in u) or (" " in u): u = f"https://www.google.com/search?q={u}"
+        if not ("." in u) or (" " in u): u = f"https://www.acmicpc.net/search#q={u}"
         elif not u.startswith("http"): u = "https://" + u
         self.browser.setUrl(QUrl(u))
 
