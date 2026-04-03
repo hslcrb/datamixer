@@ -433,6 +433,7 @@ class DataExplorerApp(QMainWindow):
         if d.exec(): 
             self.app_settings = d.get_settings()
             ThemeManager.apply_theme(self.app_settings["theme"])
+            self.jupyter_console.apply_dynamic_theme()
 
     def load_data_file_async(self, p):
         def _task():
