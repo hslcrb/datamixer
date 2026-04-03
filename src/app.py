@@ -188,6 +188,12 @@ class DataExplorerApp(QMainWindow):
         self.console_dock = QDockWidget("Jupyter Interactive Hub", self)
         self.console_dock.setWidget(self.jupyter_console.widget); self.addDockWidget(Qt.BottomDockWidgetArea, self.console_dock)
         
+        # NEW: Python Code Trace Dock (Professional Feature)
+        self.trace_dock = QDockWidget("실시간 파이썬 코드 트레이스 (Code Transparency)", self)
+        self.trace_view = QTextEdit(); self.trace_view.setReadOnly(True)
+        self.trace_view.setStyleSheet("QTextEdit { background-color: #1a1b26; color: #9ece6a; font-family: 'Courier New'; font-size: 11pt; border: none; }")
+        self.trace_dock.setWidget(self.trace_view); self.addDockWidget(Qt.RightDockWidgetArea, self.trace_dock)
+
         # Control Panel
         self.control_dock = QDockWidget("데이터 워크벤치 설정", self)
         self.setup_props_panel(); self.control_dock.setWidget(self.props_container); self.addDockWidget(Qt.RightDockWidgetArea, self.control_dock, Qt.Vertical)
@@ -201,6 +207,23 @@ class DataExplorerApp(QMainWindow):
         el.addRow("핵심 파싱 엔진:", self.combo_engine)
         self.lbl_data_info = QLabel("지능형 맵핑 대기 중..."); self.lbl_data_info.setWordWrap(True); self.lbl_data_info.setToolTip("데이터의 인코딩과 스키마 정보가 표시됩니다.")
         el.addRow(self.lbl_data_info); layout.addWidget(eg)
+
+        # Advanced Transformation Control (NEW)
+        tg = QGroupBox("고급 데이터 전처리 (Advanced Ops)"); tl = QVBoxLayout(tg)
+        grid_layout = QHBoxLayout()
+        self.btn_drop_null = QPushButton("결측치 제거"); self.btn_mean_fill = QPushButton("평균값 채우기")
+        self.btn_unique = QPushButton("중복 제거"); self.btn_sort = QPushButton("칼럼 정렬")
+        
+        for btn in [self.btn_drop_null, self.btn_mean_fill, self.btn_unique, self.btn_sort]:
+            btn.setStyleSheet("QPushButton { background-color: #24283b; color: #c0caf5; height: 30px; }")
+            grid_layout.addWidget(btn)
+        tl.addLayout(grid_layout)
+        
+        self.btn_drop_null.clicked.connect(lambda: self.apply_transform_async("Drop Nulls"))
+        self.btn_mean_fill.clicked.connect(lambda: self.apply_transform_async("Fill Nulls (Mean)"))
+        self.btn_unique.clicked.connect(lambda: self.apply_transform_async("Remove Duplicates"))
+        self.btn_sort.clicked.connect(lambda: self.apply_transform_async("Sort"))
+        layout.addWidget(tg)
         
         # Viz Control
         vg = QGroupBox("지능형 시각 결과 제어"); vl = QFormLayout(vg)
@@ -215,9 +238,18 @@ class DataExplorerApp(QMainWindow):
         vl.addRow("그래프 종류:", self.combo_viz); self.combo_x = QComboBox(); self.combo_y = QComboBox()
         vl.addRow("X축 칼럼:", self.combo_x); vl.addRow("Y축 칼럼:", self.combo_y)
         self.btn_exe = QPushButton("데이터 엔진 가동"); self.btn_exe.clicked.connect(self.generate_plot_dispatch)
+        self.btn_exe.setStyleSheet("QPushButton { background-color: #7aa2f7; color: #1a1b26; font-weight: bold; height: 40px; border-radius: 5px; }")
         vl.addRow(self.btn_exe); layout.addWidget(vg)
         
         layout.addStretch()
+
+    def update_code_trace(self, title, code):
+        """Updates the Code Trace window with a premium formatted snippet."""
+        current_text = self.trace_view.toHtml()
+        header = f"<b style='color: #7aa2f7;'># {title}</b><br>"
+        formatted_code = f"<span style='color: #9ece6a;'>{code.replace('\n', '<br>')}</span><br><br>"
+        # Prepend to show the latest at the top
+        self.trace_view.setHtml(header + formatted_code + current_text)
 
     def init_menu_and_toolbar(self):
         m = self.menuBar(); f = m.addMenu("파일 (&F)")
@@ -241,7 +273,7 @@ class DataExplorerApp(QMainWindow):
         def _task():
             enc = detect_encoding_parallel(p) if p.endswith(".csv") else "utf-8"
             engine = "Polars" if "Polars" in self.combo_engine.currentText() else "Pandas"
-            s, df, m = DataEngine.load_data(p, enc, engine)
+            s, df, m, code = DataEngine.load_data(p, enc, engine)
             
             if s and df is not None:
                 # Synchronize with Jupyter Server immediately in background
@@ -254,13 +286,14 @@ class DataExplorerApp(QMainWindow):
                 except Exception as e:
                     print(f"Background Sync Error: {e}")
                     
-                return df, m, enc
+                return df, m, enc, code
             return None
             
         def _ok(res):
             if not res: return
-            df, m, enc = res; self.df = df
+            df, m, enc, code = res; self.df = df
             self.variables[os.path.basename(p).replace(".","_")] = df
+            self.update_code_trace("Data Loading", code)
             
             # Fluid UI Update Phase
             self.update_explorer()
@@ -273,6 +306,25 @@ class DataExplorerApp(QMainWindow):
                 self.start_worker(lambda: IntelligenceCore.analyze_full_profile(df), on_success=self.on_intelligence_finished)
                 
         self.start_worker(_task, on_success=_ok, on_status=lambda s: self.status_label.setText(f"LOADING: {s}"))
+
+    def apply_transform_async(self, op):
+        if self.is_data_empty(): return
+        params = {"column": self.combo_x.currentText()} # Use combo_x as target for Sort etc.
+        
+        def _task():
+            return DataEngine.apply_transformation(self.df, op, params)
+            
+        def _ok(res):
+            success, df, msg, code = res
+            if success:
+                self.df = df
+                self.update_table(); self.update_viz_combos()
+                self.update_code_trace(f"Transformation: {op}", code)
+                self.status_label.setText(f"SUCCESS: {msg}")
+            else:
+                QMessageBox.warning(self, "Transformation Failed", msg)
+                
+        self.start_worker(_task, on_success=_ok)
 
     def on_intelligence_finished(self, r):
         html = "<b>[AI Intelligence Hub V7 - 통계 리포트]</b><br><br>"
@@ -294,23 +346,27 @@ class DataExplorerApp(QMainWindow):
         elif isinstance(self.df, pl.DataFrame):
             if self.df.height > 50000: dp = self.df.sample(n=50000)
         
-        def _on_plot_ready(res):
-            if not res[0]: return
-            self.browser.setUrl(QUrl.fromLocalFile(res[0]))
-            # Switch to Viz tab automatically for premium feel
-            self.central_tabs.setCurrentIndex(1)
-            self.status_label.setText(f"SUCCESS: {res[1]}")
-
         # Dynamic Engine Selection (Plotly Hub vs Matplotlib Canvas)
         lib_mode = self.combo_lib.currentText()
         viz_type = self.combo_viz.currentText()
         x, y = self.combo_x.currentText(), self.combo_y.currentText()
 
+        def _on_plot_ready(res):
+            if not res[0]: return
+            self.browser.setUrl(QUrl.fromLocalFile(res[0]))
+            self.central_tabs.setCurrentIndex(1)
+            self.status_label.setText(f"SUCCESS: {res[1]}")
+
         if "Plotly" in lib_mode:
             task = lambda: VizManager.generate_plotly_html(dp, viz_type, x, y)
+            code_title = "Visualization (Plotly)"
+            code = f"import plotly.express as px\nfig = px.{viz_type_map.get(viz_type, 'plot')}(df, x='{x}', y='{y}')\nfig.show()"
         else:
             task = lambda: VizManager.generate_matplotlib_fig(dp, viz_type, x, y)
+            code_title = "Visualization (Matplotlib)"
+            code = f"import matplotlib.pyplot as plt\nimport seaborn as sns\nsns.{viz_type_map_sns.get(viz_type, 'plot')}(data=df, x='{x}', y='{y}')\nplt.show()"
             
+        self.update_code_trace(code_title, code)
         self.start_worker(task, on_success=_on_plot_ready)
 
     def display_data_mapping(self, df, e):
@@ -425,3 +481,7 @@ class DataExplorerApp(QMainWindow):
         # Force refresh for flags
         self.table_view.viewport().update()
         self.status_label.setText(f"SYSTEM: {text} - 데이터 직접 수정이 가능합니다.")
+
+# Helper Maps for Code Trace Generation
+viz_type_map = {"히스토그램": "histogram", "산점도": "scatter", "박스 플롯": "box", "선 그래프": "line", "바이올린 플롯": "violin", "바 차트": "bar", "파이 차트": "pie", "영역 차트": "area"}
+viz_type_map_sns = {"히스토그램": "histplot", "산점도": "scatterplot", "박스 플롯": "boxplot", "선 그래프": "lineplot", "바이올린 플롯": "violinplot", "바 차트": "barplot"}
