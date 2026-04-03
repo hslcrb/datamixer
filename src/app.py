@@ -270,8 +270,37 @@ class DataExplorerApp(QMainWindow):
         f.addAction("환경 설정...").triggered.connect(self.open_settings)
         f.addAction("종료").triggered.connect(self.close)
         
+        # NEW: Layout Preset Menu (Proving full ratio control)
+        lp = m.addMenu("레이아웃 (&L)")
+        lp.addAction("터미널 극대화 모드").triggered.connect(lambda: self.apply_layout_preset("Terminal"))
+        lp.addAction("데이터 집중 모드").triggered.connect(lambda: self.apply_layout_preset("Data"))
+        lp.addAction("전문 분석가(균형) 모드").triggered.connect(lambda: self.apply_layout_preset("Balanced"))
+        lp.addAction("사이드바 확장 모드").triggered.connect(lambda: self.apply_layout_preset("Explorer"))
+
         tb = QToolBar("Main Controls"); self.addToolBar(tb)
         btn_set = QPushButton("시스템 설정"); btn_set.clicked.connect(self.open_settings); tb.addWidget(btn_set)
+    
+    def apply_layout_preset(self, mode):
+        """Dynamically manipulates internal window ratios for specific pro-tasks."""
+        w, h = self.width(), self.height()
+        if mode == "Terminal":
+            self.resizeDocks([self.console_dock], [int(h * 0.6)], Qt.Vertical) # 60% Terminal
+            self.resizeDocks([self.explorer_dock, self.control_dock], [250, 250], Qt.Horizontal)
+            self.status_label.setText("LAYOUT: 터미널 극대화 모드 가동 중")
+        elif mode == "Data":
+            self.resizeDocks([self.console_dock], [200], Qt.Vertical) # Minimal Terminal
+            self.resizeDocks([self.explorer_dock, self.control_dock], [150, 150], Qt.Horizontal) # Lean Sidebars
+            self.status_label.setText("LAYOUT: 데이터 시트 집중 모드 가동 중")
+        elif mode == "Balanced":
+            self.resizeDocks([self.console_dock], [int(h * 0.35)], Qt.Vertical)
+            self.resizeDocks([self.explorer_dock, self.control_dock], [300, 350], Qt.Horizontal)
+            self.status_label.setText("LAYOUT: 전문 분석가 균형 모드 동기화")
+        elif mode == "Explorer":
+            self.resizeDocks([self.explorer_dock], [500], Qt.Horizontal)
+            self.resizeDocks([self.control_dock], [500], Qt.Horizontal)
+            self.status_label.setText("LAYOUT: 사이드바 확장(변수 확인) 모드")
+        
+        self.update_code_trace("UI Layout Change", f"app.apply_layout_preset('{mode}') # Programmatic Window Resizing")
 
     def open_settings(self):
         d = SettingsDialog(self, self.app_settings)
