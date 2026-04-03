@@ -101,6 +101,19 @@ class ThemeManager:
         """
 
     @staticmethod
+    def get_colors(mode="dark"):
+        """Returns a dict of hex colors for internal non-QSS context."""
+        if mode == "light":
+            return {
+                "bg": "#f0f1f4", "fg": "#3760bf", "card-bg": "#e1e2e7",
+                "accent": "#2e7de9", "secondary": "#9854f1"
+            }
+        return {
+            "bg": "#1a1b26", "fg": "#c0caf5", "card-bg": "#24283b",
+            "accent": "#7aa2f7", "secondary": "#bb9af7"
+        }
+
+    @staticmethod
     def apply_theme(theme="dark"):
         """Applies theme (dark, light, auto) globally with premium variable-based overlays."""
         app = QApplication.instance()

@@ -45,7 +45,7 @@ class EditableTableView(QTableView):
         self.setMouseTracking(True)
         self.setSelectionBehavior(QTableView.SelectItems)
         self.setAlternatingRowColors(True)
-        self.setStyleSheet("QTableView { background-color: #1a1b26; gridline-color: #24283b; }")
+        self.setStyleSheet("QTableView { background-color: var(--bg); gridline-color: var(--border); selection-background-color: var(--accent); selection-color: var(--accent-fg); }")
 
     def keyPressEvent(self, event):
         m = self.model()
@@ -181,7 +181,7 @@ class AdvancedOpsDialog(QDialog):
         
         # Footer
         footer = QLabel("<b>경고: 모든 조작은 원본 데이터의 물리적 구조를 변경하며, 파이썬 코드 트레이스에 실시간 기록됩니다.</b>"); footer.setAlignment(Qt.AlignCenter)
-        footer.setStyleSheet("color: #f7768e; font-size: 10pt; margin-top: 25px;")
+        footer.setStyleSheet("color: var(--error); font-size: 10pt; margin-top: 25px;")
         main_layout.addWidget(footer)
 
     def finalize(self, op):
@@ -224,7 +224,7 @@ class DataExplorerApp(QMainWindow):
         self.view_tab = QWidget(); v1 = QVBoxLayout(self.view_tab)
         self.grid_header_layout = QHBoxLayout()
         self.lbl_grid_mode = QLabel("MODE: READ-ONLY")
-        self.lbl_grid_mode.setStyleSheet("color: #bb9af7; font-weight: bold; margin-left: 10px;")
+        self.lbl_grid_mode.setStyleSheet("color: var(--secondary); font-weight: bold; margin-left: 10px;")
         self.btn_toggle_edit = QPushButton("쓰기 모드로 전환"); self.btn_toggle_edit.setFixedWidth(150)
         self.btn_toggle_edit.clicked.connect(self.toggle_grid_edit_mode)
         self.grid_header_layout.addWidget(self.lbl_grid_mode); self.grid_header_layout.addStretch()
@@ -237,7 +237,9 @@ class DataExplorerApp(QMainWindow):
         
         # Viz Tab
         self.viz_tab = QWidget(); v2 = QVBoxLayout(self.viz_tab); self.browser = QWebEngineView()
-        self.browser.page().setBackgroundColor(QColor("#1a1b26"))
+        # Initial color set, will be updated by apply_theme
+        v_colors = ThemeManager.get_colors(self.app_settings["theme"])
+        self.browser.page().setBackgroundColor(QColor(v_colors["bg"]))
         self.static_canvas_container = QWidget(); self.static_canvas_layout = QVBoxLayout(self.static_canvas_container)
         v2.addWidget(self.browser); v2.addWidget(self.static_canvas_container); self.static_canvas_container.hide()
         self.central_tabs.addTab(self.viz_tab, "분석 리포트")
@@ -278,7 +280,7 @@ class DataExplorerApp(QMainWindow):
         self.trace_dock = QDockWidget("실시간 파이썬 코드 트레이스", self)
         self.trace_dock.setObjectName("TraceDock")
         self.trace_view = QTextEdit(); self.trace_view.setReadOnly(True)
-        self.trace_view.setStyleSheet("QTextEdit { background-color: #1a1b26; color: #9ece6a; font-family: 'Courier New', monospace; font-size: 11pt; border: none; }")
+        self.trace_view.setStyleSheet("QTextEdit { background-color: var(--bg); color: var(--fg); font-family: 'Courier New', monospace; font-size: 11pt; border: none; }")
         self.trace_dock.setWidget(self.trace_view); self.addDockWidget(Qt.RightDockWidgetArea, self.trace_dock)
         self.tabifyDockWidget(self.insight_dock, self.trace_dock)
 
@@ -348,8 +350,8 @@ class DataExplorerApp(QMainWindow):
 
     def update_code_trace(self, title, code):
         current_text = self.trace_view.toHtml()
-        header = f"<b style='color: #7aa2f7;'># {title}</b><br>"
-        formatted_code = f"<span style='color: #9ece6a;'>{code.replace('\n', '<br>')}</span><br><br>"
+        header = f"<b style='color: var(--accent);'># {title}</b><br>"
+        formatted_code = f"<span style='color: var(--secondary);'>{code.replace('\n', '<br>')}</span><br><br>"
         self.trace_view.setHtml(header + formatted_code + current_text)
 
     def init_menu_and_toolbar(self):
