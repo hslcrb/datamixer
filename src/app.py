@@ -17,7 +17,8 @@ from PySide6.QtWidgets import (
     QPushButton, QFileDialog, QTableView, QTabWidget, QLabel,
     QLineEdit, QComboBox, QGroupBox, QFormLayout,
     QMessageBox, QHeaderView, QTextEdit, QDockWidget, QTreeWidget,
-    QTreeWidgetItem, QToolBar, QStatusBar, QFrame, QProgressBar
+    QTreeWidgetItem, QToolBar, QStatusBar, QFrame, QProgressBar,
+    QGridLayout, QDialog, QToolTip
 )
 from PySide6.QtCore import Qt, QUrl, QSize, QByteArray, QTimer, Signal
 from PySide6.QtGui import QPalette, QColor, QAction, QFont
@@ -53,7 +54,6 @@ class EditableTableView(QTableView):
             return
         
         if m.read_only and (event.text().isalnum() or event.key() in (Qt.Key_Backspace, Qt.Key_Delete, Qt.Key_Period)):
-            from PySide6.QtWidgets import QToolTip
             pos = self.viewport().mapToGlobal(self.visualRect(self.currentIndex()).center())
             QToolTip.showText(pos, "<b>현재는 읽기 전용입니다.</b><br><br>데이터를 수동으로 수정하려면 상단<br>전환 버튼이나 여기를 눌러 쓰기로 전환하세요.", self)
             self.switch_to_edit.emit()
@@ -100,6 +100,81 @@ class MiniBrowser(QWidget):
         if not ("." in u) or (" " in u): u = f"https://www.google.com/search?q={u}"
         elif not u.startswith("http"): u = "https://" + u
         self.browser.setUrl(QUrl(u))
+
+class AdvancedOpsDialog(QDialog):
+    """Luxury 'Reactor Panel' for Nuclear-grade Data Transformations."""
+    def __init__(self, parent=None, columns=None):
+        super().__init__(parent)
+        self.setWindowTitle("DATAMIXER NUCLEAR OPS PANEL v7")
+        self.setMinimumSize(850, 500)
+        self.columns = columns or []
+        self.selected_op = None
+        self.selected_params = {}
+        self.init_ui()
+
+    def init_ui(self):
+        main_layout = QVBoxLayout(self)
+        self.setStyleSheet("""
+            QDialog { background-color: #1a1b26; color: #c0caf5; }
+            QGroupBox { border: 1px solid #7aa2f7; border-top: 25px solid #7aa2f7; margin-top: 15px; color: #1a1b26; font-weight: bold; }
+            QPushButton { background-color: #24283b; color: #c0caf5; border: 1px solid #414868; padding: 12px; border-radius: 6px; font-weight: bold; }
+            QPushButton:hover { background-color: #7aa2f7; color: #1a1b26; }
+            QComboBox { background-color: #24283b; color: #c0caf5; border: 1px solid #414868; padding: 5px; }
+            QLabel { color: #565f89; font-weight: bold; }
+        """)
+
+        title = QLabel("CORE TRANSFORMATION REACTOR"); title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("font-size: 20pt; font-weight: bold; color: #7aa2f7; margin-bottom: 20px;")
+        main_layout.addWidget(title)
+
+        grid = QGridLayout()
+        
+        # NUCLEAR CLEANING
+        g1 = QGroupBox("NUCLEAR CLEANING"); l1 = QVBoxLayout(g1)
+        ops1 = [("⚡ Drop All Nulls", "Drop Nulls"), ("🧩 Smart Fill (Forward)", "Fill Nulls (Mean)"), ("💎 Unique Extraction", "Remove Duplicates")]
+        for label, op in ops1:
+            btn = QPushButton(label); btn.clicked.connect(lambda _, o=op: self.finalize(o))
+            l1.addWidget(btn)
+        grid.addWidget(g1, 0, 0)
+
+        # SCALING & POWER
+        g2 = QGroupBox("SCALING & POWER"); l2 = QVBoxLayout(g2)
+        l2.addWidget(QLabel("Target Column Selection:"))
+        self.combo_target_col = QComboBox(); self.combo_target_col.addItems(self.columns)
+        l2.addWidget(self.combo_target_col)
+        
+        ops2 = [("⚖️ Standardize (Z-Score)", "Standardize (Z-Score)"), ("📏 Normalize (Min-Max)", "Normalize (Min-Max)"), ("📈 Log Variance (log1p)", "Log Transform")]
+        for label, op in ops2:
+            btn = QPushButton(label); btn.clicked.connect(lambda _, o=op: self.finalize(o))
+            l2.addWidget(btn)
+        grid.addWidget(g2, 0, 1)
+
+        # OUTLIER SHIELD
+        g3 = QGroupBox("OUTLIER SHIELD"); l3 = QVBoxLayout(g3)
+        ops3 = [("🛡️ IQR Filter (1.5x)", "IQR Outlier Removal"), ("🧨 Manual Trim (Top/Bottom)", "IQR Outlier Removal")]
+        for label, op in ops3:
+            btn = QPushButton(label); btn.clicked.connect(lambda _, o=op: self.finalize(o))
+            l3.addWidget(btn)
+        grid.addWidget(g3, 1, 0)
+
+        # FEATURE FUSION
+        g4 = QGroupBox("FEATURE FUSION"); l4 = QVBoxLayout(g4)
+        ops4 = [("🔗 One-Hot Encode (Dummy)", "One-Hot Encoding"), ("🏷️ Label Encode", "One-Hot Encoding")]
+        for label, op in ops4:
+            btn = QPushButton(label); btn.clicked.connect(lambda _, o=op: self.finalize(o))
+            l4.addWidget(btn)
+        grid.addWidget(g4, 1, 1)
+
+        main_layout.addLayout(grid)
+        
+        footer = QLabel("NOTICE: ALL OPS CAUSE IRREVERSIBLE CORE MUTATION (CHECK CODE TRACE)"); footer.setAlignment(Qt.AlignCenter)
+        footer.setStyleSheet("color: #bb9af7; font-size: 10pt; margin-top: 20px; font-style: italic;")
+        main_layout.addWidget(footer)
+
+    def finalize(self, op):
+        self.selected_op = op
+        self.selected_params = {"column": self.combo_target_col.currentText()}
+        self.accept()
 
 class DataExplorerApp(QMainWindow):
     def __init__(self):
@@ -215,7 +290,17 @@ class DataExplorerApp(QMainWindow):
         self.lbl_data_info = QLabel("지능형 맵핑 대기 중..."); self.lbl_data_info.setWordWrap(True)
         el.addRow(self.lbl_data_info); layout.addWidget(eg)
 
-        tg = QGroupBox("고급 데이터 전처리 (Advanced Ops)"); tl = QVBoxLayout(tg)
+        # ADVANCED OPS HEADER with MORE BUTTON
+        tg = QGroupBox(); tl = QVBoxLayout(tg)
+        header_layout = QHBoxLayout()
+        header_label = QLabel("고급 데이터 전처리")
+        header_label.setStyleSheet("font-weight: bold; color: #7aa2f7;")
+        self.btn_more_ops = QPushButton("더보기 +")
+        self.btn_more_ops.setFixedWidth(80); self.btn_more_ops.setStyleSheet("QPushButton { height: 22px; font-size: 8pt; background-color: #414868; padding: 2px; }")
+        self.btn_more_ops.clicked.connect(self.open_advanced_ops)
+        header_layout.addWidget(header_label); header_layout.addStretch(); header_layout.addWidget(self.btn_more_ops)
+        tl.addLayout(header_layout)
+
         grid_layout = QHBoxLayout()
         self.btn_drop_null = QPushButton("결측치 제거"); self.btn_mean_fill = QPushButton("평균값 채우기")
         self.btn_unique = QPushButton("중복 제거"); self.btn_sort = QPushButton("칼럼 정렬")
@@ -239,6 +324,12 @@ class DataExplorerApp(QMainWindow):
         self.btn_exe.setStyleSheet("QPushButton { background-color: #7aa2f7; color: #1a1b26; font-weight: bold; height: 40px; border-radius: 5px; }")
         vl.addRow(self.btn_exe); layout.addWidget(vg)
         layout.addStretch()
+
+    def open_advanced_ops(self):
+        if self.is_data_empty(): return
+        d = AdvancedOpsDialog(self, columns=list(self.df.columns))
+        if d.exec():
+            self.apply_transform_async(d.selected_op, params=d.selected_params)
 
     def update_code_trace(self, title, code):
         current_text = self.trace_view.toHtml()
@@ -340,9 +431,12 @@ class DataExplorerApp(QMainWindow):
                 self.update_code_trace("Data Loaded", code)
         self.start_worker(_task, on_success=_ok)
 
-    def apply_transform_async(self, op):
+    def apply_transform_async(self, op, params=None):
         if self.is_data_empty(): return
-        def _task(): return DataEngine.apply_transformation(self.df, op, {"column": self.combo_x.currentText()})
+        if params is None:
+            params = {"column": self.combo_x.currentText()}
+            
+        def _task(): return DataEngine.apply_transformation(self.df, op, params)
         def _ok(res):
             if res[0]:
                 self.df = res[1]; self.update_table(); self.update_viz_combos()

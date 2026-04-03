@@ -1,6 +1,7 @@
 import pandas as pd
 import polars as pl
 import os
+import numpy as np
 
 class DataEngine:
     """Manages high-performance data processing with Advanced Core Transformation & Code Trace support."""
@@ -43,51 +44,97 @@ class DataEngine:
 
     @staticmethod
     def apply_transformation(df, op_type, params=None):
-        """Applies advanced transformations and generates Code Trace for GUI parity."""
+        """Applies nuclear-level advanced transformations with Code Trace sync."""
         is_polars = isinstance(df, pl.DataFrame)
+        cols = params.get("columns", []) if params else []
+        col = params.get("column") if params else None
+        
         try:
+            # 1. BASIC CLEANING
             if op_type == "Drop Nulls":
-                if is_polars:
-                    res = df.drop_nulls()
-                    code = "df = df.drop_nulls()"
-                else:
-                    res = df.dropna()
-                    code = "df = df.dropna()"
+                res = df.drop_nulls() if is_polars else df.dropna()
+                code = "df = df.drop_nulls()" if is_polars else "df = df.dropna()"
                 return True, res, "모든 결측 행이 제거되었습니다.", code
 
             elif op_type == "Fill Nulls (Mean)":
                 if is_polars:
-                    # Polars mean fill needs to be column-specific or using fill_nan for floats
-                    res = df.fill_null(strategy="forward") # Simplified fallback
-                    code = "df = df.fill_null(strategy='forward') # (Mean fill strategy mapping)"
+                    res = df.fill_null(strategy="forward") # Simplified forward fill for Polars
+                    code = "df = df.fill_null(strategy='forward')"
                 else:
                     res = df.fillna(df.mean(numeric_only=True))
                     code = "df = df.fillna(df.mean(numeric_only=True))"
-                return True, res, "수치형 결측치가 평균값으로 보정되었습니다.", code
+                return True, res, "수치형 결측치가 보정되었습니다.", code
 
             elif op_type == "Remove Duplicates":
+                res = df.unique() if is_polars else df.drop_duplicates()
+                code = "df = df.unique()" if is_polars else "df = df.drop_duplicates()"
+                return True, res, "중복 데이터가 정리되었습니다.", code
+
+            # 2. SCALING & NORMALIZATION
+            elif op_type == "Standardize (Z-Score)":
+                if not col: return False, df, "대상 칼럼을 선택하세요.", ""
                 if is_polars:
-                    res = df.unique()
-                    code = "df = df.unique()"
+                    res = df.with_columns([(pl.col(col) - pl.col(col).mean()) / pl.col(col).std()])
+                    code = f"df = df.with_columns([(pl.col('{col}') - pl.col('{col}').mean()) / pl.col('{col}').std()])"
                 else:
-                    res = df.drop_duplicates()
-                    code = "df = df.drop_duplicates()"
-                return True, res, "중복 행이 제거되었습니다.", code
+                    res = df.copy(); res[col] = (df[col] - df[col].mean()) / df[col].std()
+                    code = f"df['{col}'] = (df['{col}'] - df['{col}'].mean()) / df['{col}'].std()"
+                return True, res, f"'{col}' 칼럼 정규화 완료 (Z-Score)", code
+
+            elif op_type == "Normalize (Min-Max)":
+                if not col: return False, df, "대상 칼럼을 선택하세요.", ""
+                if is_polars:
+                    res = df.with_columns([(pl.col(col) - pl.col(col).min()) / (pl.col(col).max() - pl.col(col).min())])
+                    code = f"df = df.with_columns([(pl.col('{col}') - pl.col('{col}').min()) / (pl.col('{col}').max() - pl.col('{col}').min())])"
+                else:
+                    res = df.copy(); res[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+                    code = f"df['{col}'] = (df['{col}'] - df['{col}'].min()) / (df['{col}'].max() - df['{col}'].min())"
+                return True, res, f"'{col}' 칼럼 정규화 완료 (Min-Max)", code
+
+            # 3. OUTLIER MANAGEMENT
+            elif op_type == "IQR Outlier Removal":
+                if not col: return False, df, "대상 칼럼을 선택하세요.", ""
+                if is_polars:
+                    q1 = df[col].quantile(0.25); q3 = df[col].quantile(0.75); iqr = q3 - q1
+                    lower = q1 - 1.5 * iqr; upper = q3 + 1.5 * iqr
+                    res = df.filter((pl.col(col) >= lower) & (pl.col(col) <= upper))
+                    code = f"q1, q3 = df['{col}'].quantile(0.25), df['{col}'].quantile(0.75)\nlower, upper = q1 - 1.5*(q3-q1), q3 + 1.5*(q3-q1)\ndf = df.filter((pl.col('{col}') >= lower) & (pl.col('{col} <= upper)))"
+                else:
+                    q1 = df[col].quantile(0.25); q3 = df[col].quantile(0.75); iqr = q3 - q1
+                    res = df[(df[col] >= q1 - 1.5 * iqr) & (df[col] <= q3 + 1.5 * iqr)]
+                    code = f"Q1, Q3 = df['{col}'].quantile(0.25), df['{col}'].quantile(0.75)\nIQR = Q3 - Q1\ndf = df[(df['{col}'] >= Q1 - 1.5 * IQR) & (df['{col}'] <= Q3 + 1.5 * IQR)]"
+                return True, res, "IQR 기준 이상치가 제거되었습니다.", code
+
+            # 4. FEATURE ENGINEERING
+            elif op_type == "One-Hot Encoding":
+                if not col: return False, df, "대상 칼럼을 선택하세요.", ""
+                if is_polars:
+                    res = df.to_dummies(columns=[col])
+                    code = f"df = df.to_dummies(columns=['{col}'])"
+                else:
+                    res = pd.get_dummies(df, columns=[col])
+                    code = f"df = pd.get_dummies(df, columns=['{col}'])"
+                return True, res, f"'{col}' 원-핫 인코딩 완료", code
+
+            elif op_type == "Log Transform":
+                if not col: return False, df, "대상 칼럼을 선택하세요.", ""
+                if is_polars:
+                    res = df.with_columns([pl.col(col).log()])
+                    code = f"df = df.with_columns([pl.col('{col}').log()])"
+                else:
+                    res = df.copy(); res[col] = np.log1p(df[col])
+                    code = f"import numpy as np\ndf['{col}'] = np.log1p(df['{col}'])"
+                return True, res, f"'{col}' 로그 변환 완료", code
 
             elif op_type == "Sort":
-                col = params.get("column")
                 if not col: return False, df, "칼럼이 선택되지 않았습니다.", ""
-                if is_polars:
-                    res = df.sort(col)
-                    code = f"df = df.sort('{col}')"
-                else:
-                    res = df.sort_values(by=col)
-                    code = f"df = df.sort_values(by='{col}')"
-                return True, res, f"'{col}' 기준으로 정렬되었습니다.", code
+                res = df.sort(col) if is_polars else df.sort_values(by=col)
+                code = f"df = df.sort('{col}')" if is_polars else f"df = df.sort_values(by='{col}')"
+                return True, res, f"'{col}' 기준 정렬 완료", code
 
             return False, df, "지원되지 않는 변환 작업입니다.", ""
         except Exception as e:
-            return False, df, f"변환 실패: {str(e)}", ""
+            return False, df, f"핵심 엔진 가동 실패: {str(e)}", ""
 
     @staticmethod
     def run_query(df, query_str):
@@ -98,7 +145,6 @@ class DataEngine:
                 code = f"df = df.query('{query_str}')"
                 return True, res, "Pandas Query 성공", code
             elif isinstance(df, pl.DataFrame):
-                # Using Polars filter approach
                 res = df.filter(pl.Expr(query_str))
                 code = f"df = df.filter(pl.Expr('{query_str}'))"
                 return True, res, "Polars Filter 성공", code
