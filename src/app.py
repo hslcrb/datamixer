@@ -204,7 +204,14 @@ class DataExplorerApp(QMainWindow):
         
         # Viz Control
         vg = QGroupBox("지능형 시각 결과 제어"); vl = QFormLayout(vg)
-        self.combo_viz = QComboBox(); self.combo_viz.addItems(["히스토그램", "산점도", "박스 플롯", "히트맵", "선 그래프"])
+        self.combo_lib = QComboBox(); self.combo_lib.addItems(["Plotly (인터랙티브)", "Matplotlib (정적 PNG)"])
+        vl.addRow("시각화 엔진:", self.combo_lib)
+        self.combo_viz = QComboBox()
+        self.combo_viz.addItems([
+            "히스토그램", "산점도", "박스 플롯", "바이올린 플롯", 
+            "선 그래프", "바 차트", "파이 차트", "영역 차트", 
+            "히트맵 (상관관계)", "밀도 히트맵"
+        ])
         vl.addRow("그래프 종류:", self.combo_viz); self.combo_x = QComboBox(); self.combo_y = QComboBox()
         vl.addRow("X축 칼럼:", self.combo_x); vl.addRow("Y축 칼럼:", self.combo_y)
         self.btn_exe = QPushButton("데이터 엔진 가동"); self.btn_exe.clicked.connect(self.generate_plot_dispatch)
@@ -294,9 +301,17 @@ class DataExplorerApp(QMainWindow):
             self.central_tabs.setCurrentIndex(1)
             self.status_label.setText(f"SUCCESS: {res[1]}")
 
-        # Always use Plotly for premium interactivity
-        self.start_worker(lambda: VizManager.generate_plotly_html(dp, self.combo_viz.currentText(), self.combo_x.currentText(), self.combo_y.currentText()), 
-                          on_success=_on_plot_ready)
+        # Dynamic Engine Selection (Plotly Hub vs Matplotlib Canvas)
+        lib_mode = self.combo_lib.currentText()
+        viz_type = self.combo_viz.currentText()
+        x, y = self.combo_x.currentText(), self.combo_y.currentText()
+
+        if "Plotly" in lib_mode:
+            task = lambda: VizManager.generate_plotly_html(dp, viz_type, x, y)
+        else:
+            task = lambda: VizManager.generate_matplotlib_fig(dp, viz_type, x, y)
+            
+        self.start_worker(task, on_success=_on_plot_ready)
 
     def display_data_mapping(self, df, e):
         info = f"<b>Encoding:</b> <span style='color: #9ece6a;'>{e}</span><br><b>Shape:</b> <span style='color: #7aa2f7;'>{df.shape[0]:,} x {df.shape[1]:,}</span><br><br><b>스키마 정보:</b><br>"
