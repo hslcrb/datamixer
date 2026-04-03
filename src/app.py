@@ -341,7 +341,7 @@ class DataExplorerApp(QMainWindow):
         self.start_worker(_task, on_success=_ok)
 
     def apply_transform_async(self, op):
-        if self.df.empty: return
+        if self.is_data_empty(): return
         def _task(): return DataEngine.apply_transformation(self.df, op, {"column": self.combo_x.currentText()})
         def _ok(res):
             if res[0]:
@@ -349,8 +349,16 @@ class DataExplorerApp(QMainWindow):
                 self.update_code_trace(f"Transform: {op}", res[3])
         self.start_worker(_task, on_success=_ok)
 
+    def is_data_empty(self):
+        """Robust engine-agnostic check for empty dataframe (Pandas/Polars)."""
+        if isinstance(self.df, pd.DataFrame):
+            return self.df.empty
+        elif isinstance(self.df, pl.DataFrame):
+            return self.df.is_empty()
+        return True
+
     def generate_plot_dispatch(self):
-        if self.df.empty: return
+        if self.is_data_empty(): return
         viz_type = self.combo_viz.currentText()
         x, y = self.combo_x.currentText(), self.combo_y.currentText()
         if "Plotly" in self.combo_lib.currentText():
@@ -372,7 +380,7 @@ class DataExplorerApp(QMainWindow):
         self.df = self.variables[i.text(0)]; self.update_table(); self.update_viz_combos()
 
     def update_table(self):
-        if self.df.empty: return
+        if self.is_data_empty(): return
         display_df = self.df if isinstance(self.df, pd.DataFrame) else self.df.to_pandas()
         model = PandasModel(display_df)
         model.dataChanged.connect(self.on_data_edited_sync)
@@ -388,7 +396,9 @@ class DataExplorerApp(QMainWindow):
     def start_worker(self, f, *a, on_success=None, on_status=None, **k):
         w = GenericWorker(f, *a, **k)
         if on_success: w.result_ready.connect(on_success)
-        w.finished.connect(lambda: self.workers.remove(w))
+        def _safe_remove():
+            if w in self.workers: self.workers.remove(w)
+        w.finished.connect(_safe_remove)
         self.workers.append(w); w.start()
 
     def update_explorer(self):
