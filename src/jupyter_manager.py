@@ -3,6 +3,7 @@ import os
 import sys
 import socket
 import darkdetect
+import atexit
 
 class JupyterServerManager:
     """Manages an external Jupyter Lab server with system theme awareness."""
@@ -60,10 +61,18 @@ class JupyterServerManager:
             stderr=subprocess.DEVNULL,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         )
+        # Force cleanup even on crash
+        atexit.register(self.stop)
         print(f"Jupyter Lab server starting with theme '{target_theme}' on port {self.port}...")
 
     def stop(self):
         if self.process:
-            self.process.terminate()
-            self.process.wait()
-            print("Jupyter server stopped.")
+            try:
+                self.process.terminate()
+                self.process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+            except: pass
+            finally:
+                self.process = None
+                print("Jupyter server stopped.")

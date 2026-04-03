@@ -33,6 +33,33 @@ from .intelligence.core import IntelligenceCore
 from .theme import ThemeManager
 from .jupyter_manager import JupyterServerManager
 
+class EditableTableView(QTableView):
+    """Premium High-End Data Grid with Intelligent Read-Only/Edit Switch."""
+    switch_to_edit = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMouseTracking(True)
+        self.setSelectionBehavior(QTableView.SelectItems)
+        self.setAlternatingRowColors(True)
+        self.setStyleSheet("QTableView { background-color: #1a1b26; gridline-color: #24283b; }")
+
+    def keyPressEvent(self, event):
+        m = self.model()
+        if not m or not hasattr(m, 'read_only'):
+            super().keyPressEvent(event)
+            return
+        
+        # If user tries to type/edit while restricted
+        if m.read_only and (event.text().isalnum() or event.key() in (Qt.Key_Backspace, Qt.Key_Delete, Qt.Key_Period)):
+            from PySide6.QtWidgets import QToolTip
+            pos = self.viewport().mapToGlobal(self.visualRect(self.currentIndex()).center())
+            QToolTip.showText(pos, "<b>현재는 읽기 전용입니다.</b><br><br>데이터를 수동으로 수정하려면 상단<br>전환 버튼이나 여기를 눌러 쓰기로 전환하세요.", self)
+            self.switch_to_edit.emit()
+            return
+            
+        super().keyPressEvent(event)
+
 class MiniBrowser(QWidget):
     """Integrated Premium Web Browser with Tokyo Night Sync."""
     def __init__(self, parent=None):
@@ -107,7 +134,19 @@ class DataExplorerApp(QMainWindow):
         self.setCentralWidget(self.central_tabs)
         
         # Grid Tab
-        self.view_tab = QWidget(); v1 = QVBoxLayout(self.view_tab); self.table_view = QTableView()
+        self.view_tab = QWidget(); v1 = QVBoxLayout(self.view_tab)
+        # Header for the Grid
+        self.grid_header_layout = QHBoxLayout()
+        self.lbl_grid_mode = QLabel("MODE: READ-ONLY")
+        self.lbl_grid_mode.setStyleSheet("color: #bb9af7; font-weight: bold; margin-left: 10px;")
+        self.btn_toggle_edit = QPushButton("쓰기 모드로 전환"); self.btn_toggle_edit.setFixedWidth(150)
+        self.btn_toggle_edit.clicked.connect(self.toggle_grid_edit_mode)
+        self.grid_header_layout.addWidget(self.lbl_grid_mode); self.grid_header_layout.addStretch()
+        self.grid_header_layout.addWidget(self.btn_toggle_edit)
+        v1.addLayout(self.grid_header_layout)
+
+        self.table_view = EditableTableView()
+        self.table_view.switch_to_edit.connect(self.toggle_grid_edit_mode)
         v1.addWidget(self.table_view); self.central_tabs.addTab(self.view_tab, "지능형 데이터 그리드")
         
         # Viz Tab
@@ -239,14 +278,25 @@ class DataExplorerApp(QMainWindow):
             self.generate_plot_dispatch()
 
     def generate_plot_dispatch(self):
-        if self.df.empty: return
+        if self.is_data_empty(): return
         dp = self.df
-        if len(self.df) > 50000:
-            dp = self.df.sample(50000) if isinstance(self.df, pd.DataFrame) else self.df.sample(n=50000)
         
+        # High-performance sampling for large data
+        if isinstance(self.df, pd.DataFrame):
+            if len(self.df) > 50000: dp = self.df.sample(50000)
+        elif isinstance(self.df, pl.DataFrame):
+            if self.df.height > 50000: dp = self.df.sample(n=50000)
+        
+        def _on_plot_ready(res):
+            if not res[0]: return
+            self.browser.setUrl(QUrl.fromLocalFile(res[0]))
+            # Switch to Viz tab automatically for premium feel
+            self.central_tabs.setCurrentIndex(1)
+            self.status_label.setText(f"SUCCESS: {res[1]}")
+
         # Always use Plotly for premium interactivity
         self.start_worker(lambda: VizManager.generate_plotly_html(dp, self.combo_viz.currentText(), self.combo_x.currentText(), self.combo_y.currentText()), 
-                          on_success=lambda r: self.browser.setUrl(QUrl.fromLocalFile(r[0])))
+                          on_success=_on_plot_ready)
 
     def display_data_mapping(self, df, e):
         info = f"<b>Encoding:</b> <span style='color: #9ece6a;'>{e}</span><br><b>Shape:</b> <span style='color: #7aa2f7;'>{df.shape[0]:,} x {df.shape[1]:,}</span><br><br><b>스키마 정보:</b><br>"
@@ -260,10 +310,42 @@ class DataExplorerApp(QMainWindow):
     def on_variable_clicked(self, i): 
         self.df = self.variables[i.text(0)]; self.update_table(); self.update_viz_combos()
 
+    def is_data_empty(self):
+        """Engine-agnostic check for empty dataframe."""
+        if isinstance(self.df, pd.DataFrame):
+            return self.df.empty
+        elif isinstance(self.df, pl.DataFrame):
+            return self.df.is_empty()
+        return True
+
     def update_table(self): 
-        if self.df.empty: return
+        if self.is_data_empty(): return
+        # Logic: Models need Pandas for UI rendering speed and compatibility
         display_df = self.df if isinstance(self.df, pd.DataFrame) else self.df.to_pandas()
-        self.table_view.setModel(PandasModel(display_df))
+        model = PandasModel(display_df)
+        # Sync back changes to the main engine
+        model.dataChanged.connect(self.on_data_edited_sync)
+        self.table_view.setModel(model)
+
+    def on_data_edited_sync(self):
+        """Synchronizes edits from the Pandas UI model back to the main engine (Pd or Pl)."""
+        m = self.table_view.model()
+        if not m: return
+        
+        # Capture the modified data
+        edited_df = m._data
+        
+        # If original was Polars, sync back by converting
+        if isinstance(self.df, pl.DataFrame):
+            self.df = pl.from_pandas(edited_df)
+            self.status_label.setText("SYSTEM: Polars 엔진 동기화 완료 (수정됨)")
+        else:
+            self.df = edited_df # Pandas is already reference-synced, but good for clarity
+            self.status_label.setText("SYSTEM: Pandas 레코드 업데이트 완료")
+            
+        # Re-trigger intelligence if needed
+        if self.app_settings["auto_analysis"]:
+            self.start_worker(lambda: IntelligenceCore.analyze_full_profile(self.df), on_success=self.on_intelligence_finished)
 
     def update_viz_combos(self): 
         c = list(self.df.columns); self.combo_x.clear(); self.combo_y.clear(); self.combo_x.addItems(c); self.combo_y.addItems(c)
@@ -288,7 +370,35 @@ class DataExplorerApp(QMainWindow):
             self.explorer_tree.addTopLevelItem(QTreeWidgetItem([v, dtype, f"{size} ({mem})"]))
 
     def dragEnterEvent(self, e): 
-        if e.mimeData().hasUrls(): e.accept()
-        else: e.ignore()
+        if e.mimeData().hasUrls(): 
+            e.accept()
+            self.status_label.setText("DROP: 데이터 파일을 놓으면 즉시 분석을 시작합니다.")
+            self.status_label.setStyleSheet("color: #7aa2f7; font-weight: bold;")
+        else: 
+            e.ignore()
+            
+    def dragLeaveEvent(self, e):
+        self.status_label.setText("SYSTEM: HEALTHY")
+        self.status_label.setStyleSheet("")
+
     def dropEvent(self, e): 
-        for u in e.mimeData().urls(): self.load_data_file_async(u.toLocalFile())
+        self.status_label.setText("SYSTEM: PROCESSING...")
+        self.status_label.setStyleSheet("")
+        for u in e.mimeData().urls(): 
+            self.load_data_file_async(u.toLocalFile())
+    def toggle_grid_edit_mode(self):
+        m = self.table_view.model()
+        if not m or not hasattr(m, 'read_only'): return
+        
+        m.read_only = not m.read_only
+        text = "MODE: EDIT-ENABLED" if not m.read_only else "MODE: READ-ONLY"
+        btn_text = "읽기 전용으로 전환" if not m.read_only else "쓰기 모드로 전환"
+        color = "#9ece6a" if not m.read_only else "#bb9af7"
+        
+        self.lbl_grid_mode.setText(text)
+        self.lbl_grid_mode.setStyleSheet(f"color: {color}; font-weight: bold; margin-left: 10px;")
+        self.btn_toggle_edit.setText(btn_text)
+        
+        # Force refresh for flags
+        self.table_view.viewport().update()
+        self.status_label.setText(f"SYSTEM: {text} - 데이터 직접 수정이 가능합니다.")

@@ -8,60 +8,65 @@ class IntelligenceCore:
     
     @staticmethod
     def analyze_full_profile(df):
-        """High-performance 360 profiling with Multi-Engine Support."""
-        # Normalize to Pandas for complex statistical operations that Scipy/Numpy expect
-        if isinstance(df, pl.DataFrame):
-            # For profiling, we use a sampled pandas version if it's huge, or just convert
-            pf_df = df.to_pandas()
+        """High-performance 360 profiling with Multi-Engine Support (Optimized)."""
+        is_polars = isinstance(df, pl.DataFrame)
+        
+        # 1. Base Intelligence (Native Polars/Pandas handling)
+        if is_polars:
+            rows = df.height; cols = len(df.columns)
             engine_name = "Polars [Fast]"
+            # Lightweight null check natively in Polars
+            nulls = df.null_count().to_pandas().iloc[0].to_dict() if rows < 5000000 else {c: "N/A" for c in df.columns}
         else:
-            pf_df = df
+            rows = len(df); cols = len(df.columns)
             engine_name = "Pandas [Standard]"
+            nulls = df.isnull().sum().to_dict()
 
-        if pf_df.empty:
+        if rows == 0:
             return {"summary": {}, "insights": ["분석 가능한 데이터가 없습니다."], "suggestions": []}
 
         report = {
-            "summary": {
-                "rows": len(pf_df), 
-                "cols": len(pf_df.columns), 
-                "engine": engine_name
-            },
-            "insights": [f"<b>[Engine]</b> 현재 <span style='color: #bb9af7;'>{engine_name}</span> 엔진으로 분석 중입니다."],
+            "summary": {"rows": rows, "cols": cols, "engine": engine_name},
+            "insights": [f"<b>[Engine]</b> <span style='color: #bb9af7;'>{engine_name}</span> 엔진으로 매끄럽게 처리 중입니다."],
             "suggestions": []
         }
         
+        # 2. Intelligent Sampling for Stats
+        if rows > 100000:
+            # Stats won't change much with 100k samples
+            pf_df = df.sample(n=100000).to_pandas() if is_polars else df.sample(100000)
+            report["insights"].append("<b>[Performance]</b> 대용량 데이터로 인해 지능형 샘플링(100k) 분석이 적용되었습니다.")
+        else:
+            pf_df = df.to_pandas() if is_polars else df
+
         nums = pf_df.select_dtypes(include=[np.number])
         cats = pf_df.select_dtypes(include=['object', 'category', 'bool'])
         
-        # 1. Advanced Statistical Profiling
+        # 3. Enhanced Statistical Intelligence
         for col in pf_df.columns:
+            null_count = nulls.get(col, 0)
             series = pf_df[col]
-            null_count = series.isnull().sum()
             unique_count = series.nunique()
             unique_ratio = unique_count / len(pf_df) if len(pf_df) > 0 else 0
             
-            # Identify ID columns
             if unique_ratio > 0.98 and len(pf_df) > 10:
-                report["insights"].append(f"<b>[구조 지능]</b> '{col}'은(는) 고유 식별자(ID) 가능성이 매우 높습니다.")
+                report["insights"].append(f"<b>[구조 지능]</b> '{col}'은(는) 고유 식별자(PK)입니다.")
             
-            # Statistical Intelligence for Numbers
             if col in nums.columns:
                 try:
-                    # Skewness
                     skew = series.skew()
                     if abs(skew) > 2.0:
-                        direction = "Positive" if skew > 0 else "Negative"
-                        report["insights"].append(f"<b>[분포 패턴]</b> '{col}'은(는) <span style='color: #f7768e;'>{direction} 편항</span>이 관찰됩니다.")
+                        dir_str = "양(+)의" if skew > 0 else "음(-)"
+                        report["insights"].append(f"<b>[분포 패턴]</b> '{col}'은(는) {dir_str} 편향이 뚜렷합니다.")
                     
-                    # Outliers
+                    # Outlier Intelligence via Z-Score
                     valid_data = series.dropna()
-                    if len(valid_data) > 3:
-                        z_scores = np.abs(stats.zscore(valid_data))
+                    if len(valid_data) > 10:
+                        z_scores = np.abs(stats.zscore(valid_data.head(10000))) # Limit Z-score compute
                         outliers = np.sum(z_scores > 3.0)
-                        if outliers > 0:
-                            report["insights"].append(f"<b>[이상치]</b> '{col}'에서 <span style='color: #f7768e;'>{outliers}개</span>의 극단적 변동을 감지했습니다.")
-                            report["suggestions"].append({"type": "박스 플롯", "x": col, "y": None, "desc": f"'{col}' 이상치 상세 분석"})
+                        if outliers > 3:
+                            report["insights"].append(f"<b>[변동 감지]</b> '{col}'에서 특이 행동({outliers}+개)을 감지했습니다.")
+                            report["suggestions"].append({"type": "박스 플롯", "x": col, "y": None, "desc": "이상 데이터 분포 상세 확인"})
                 except: pass
 
             # Intelligence for Categories

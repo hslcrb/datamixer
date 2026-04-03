@@ -22,11 +22,21 @@ class JupyterConsoleManager:
         self.widget.kernel_manager = self.kernel_manager
         self.widget.kernel_client = self.kernel_client
         
-        # Styling: Tokyo Night Deep UI
+        # Styling: Tokyo Night Deep Console UI
         self.widget.setStyleSheet("""
-            QWidget { background-color: #1a1b26; color: #c0caf5; border: none; }
-            RichJupyterWidget { border: 1px solid #24283b; }
+            QWidget { background-color: #1a1b26; color: #c0caf5; border: none; font-family: 'Consolas', 'Courier New', monospace; }
+            RichJupyterWidget { border: 1px solid #24283b; background-color: #1a1b26; }
+            QPlainTextEdit { background-color: #1a1b26 !important; }
         """)
+        
+        # Premium Terminal Theme Overlays
+        self.widget.set_default_style('linux') # Starting point for darker feel
+        # Further refine internal interactive colors
+        self.widget.style_sheet = """
+            .ipython { color: #bb9af7; }
+            .input_prompt { color: #7aa2f7; font-weight: bold; }
+            .output_prompt { color: #f7768e; font-weight: bold; }
+        """
         
         # Immediate Global Namespace Injection
         self.inject_full_stack()
