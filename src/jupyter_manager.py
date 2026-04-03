@@ -58,7 +58,8 @@ class JupyterServerManager:
         target_theme = self.get_effective_theme(app_theme)
         cmd = [
             sys.executable, "-m", "jupyter", "lab",
-            "--no-browser",
+            "--ServerApp.open_browser=False",
+            "--LabApp.open_browser=False",
             f"--port={self.port}",
             f"--notebook-dir={self.notebook_dir}",
             f"--ServerApp.token={self.token}",
