@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
 import sys
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
 
@@ -18,6 +18,9 @@ datas = [
 # Collect additional data for heavy modules
 datas += collect_data_files('plotly')
 datas += collect_data_files('qdarktheme')
+datas += collect_data_files('debugpy')
+datas += collect_data_files('ipykernel')
+datas += collect_data_files('jupyterlab')
 
 a = Analysis(
     ['main.py'],
@@ -27,10 +30,10 @@ a = Analysis(
     hiddenimports=[
         'pandas', 'numpy', 'matplotlib.pyplot', 'seaborn', 'PySide6.QtWebEngineWidgets',
         'PySide6.QtWebEngineCore', 'qdarktheme', 'openpyxl', 'qtconsole', 'ipykernel',
-        'plotly', 'pyarrow', 'polars', 'scipy', 'darkdetect', 'jupyterlab',
+        'plotly', 'pyarrow', 'polars', 'scipy', 'darkdetect', 'jupyterlab', 'debugpy',
         'src.app', 'src.engine', 'src.repl', 'src.session', 'src.theme', 'src.utils',
         'src.viz_manager', 'src.worker', 'src.models', 'src.settings', 'src.jupyter_manager'
-    ],
+    ] + collect_submodules('debugpy'),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -63,5 +66,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # Icon explicitly excluded as requested
+    icon=None,
 )
