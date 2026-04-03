@@ -326,7 +326,9 @@ class DataExplorerApp(QMainWindow):
         layout.addStretch()
 
     def open_advanced_ops(self):
-        if self.is_data_empty(): return
+        if self.is_data_empty(): 
+            self.status_label.setText("SYSTEM: 데이터 로드 및 맵핑이 선행되어야 변환 엔진이 가동됩니다.")
+            return
         d = AdvancedOpsDialog(self, columns=list(self.df.columns))
         if d.exec():
             self.apply_transform_async(d.selected_op, params=d.selected_params)
