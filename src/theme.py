@@ -2,72 +2,107 @@ import qdarktheme
 from PySide6.QtWidgets import QApplication
 
 class ThemeManager:
-    """Modern Theme Manager with Glassmorphic Overlays (Tokyo Night High-End)."""
+    """Modern Theme Manager with CSS Variable support (Tokyo Night Design System)."""
     
     @staticmethod
+    def get_theme_vars(mode="dark"):
+        """Defines the core Tokyo Night palettes using CSS variable tokens."""
+        if mode == "light":
+            return """
+            :root {
+                --bg: #f0f1f4;
+                --fg: #3760bf;
+                --card-bg: #e1e2e7;
+                --accent: #2e7de9;
+                --accent-fg: #ffffff;
+                --secondary: #9854f1;
+                --border: #d5d6db;
+                --hover: #cfd0d7;
+                --muted: #8c8fa1;
+                --error: #f7768e;
+            }
+            """
+        else: # dark
+            return """
+            :root {
+                --bg: #1a1b26;
+                --fg: #c0caf5;
+                --card-bg: #24283b;
+                --accent: #7aa2f7;
+                --accent-fg: #1a1b26;
+                --secondary: #bb9af7;
+                --border: #414868;
+                --hover: #3b4261;
+                --muted: #565f89;
+                --error: #f7768e;
+            }
+            """
+
+    @staticmethod
     def get_premium_qss():
-        """Returns extra Tokyo Night CSS for a truly high-end feel."""
+        """Returns extra Tokyo Night CSS using variables for truly high-end feel."""
         return """
             /* Base Window and Dialogs */
-            QMainWindow, QDialog { background-color: #1a1b26; color: #c0caf5; }
+            QMainWindow, QDialog { background-color: var(--bg); color: var(--fg); }
             
             /* Docks and Tabs */
             QDockWidget::title {
-                background: #1a1b26; padding: 10px; font-weight: bold; font-size: 10pt; color: #7aa2f7; border-bottom: 2px solid #24283b;
+                background: var(--bg); padding: 12px; font-weight: bold; font-size: 10pt; color: var(--accent); border-bottom: 2px solid var(--card-bg);
             }
-            QTabWidget::pane { border: 1px solid #24283b; background-color: #1a1b26; border-radius: 8px; }
+            QTabWidget::pane { border: 1px solid var(--border); background-color: var(--bg); border-radius: 8px; }
             QTabBar::tab {
-                background: #24283b; color: #c0caf5; padding: 10px 20px; border-top-left-radius: 8px; border-top-right-radius: 8px; margin: 2px;
+                background: var(--card-bg); color: var(--fg); padding: 12px 24px; border-top-left-radius: 8px; border-top-right-radius: 8px; margin: 2px;
             }
-            QTabBar::tab:selected { background: #7aa2f7; color: #1a1b26; font-weight: bold; }
+            QTabBar::tab:selected { background: var(--accent); color: var(--accent-fg); font-weight: bold; }
             
             /* Headers and Tables */
-            QHeaderView::section { background-color: #1a1b26; color: #7aa2f7; padding: 6px; border: 1px solid #24283b; font-weight: bold; }
+            QHeaderView::section { background-color: var(--bg); color: var(--accent); padding: 8px; border: 1px solid var(--border); font-weight: bold; }
             QTreeView, QTableView { 
-                background-color: #1a1b26; border: none; gridline-color: #24283b; selection-background-color: #7aa2f7; 
-                selection-color: #1a1b26; alternate-background-color: #24283b; border-radius: 8px; 
+                background-color: var(--bg); border: none; gridline-color: var(--border); selection-background-color: var(--accent); 
+                selection-color: var(--accent-fg); alternate-background-color: var(--card-bg); border-radius: 8px; 
             }
             
             /* Inputs and Buttons */
-            QGroupBox { border: 2px solid #24283b; border-radius: 10px; margin-top: 15px; font-weight: bold; padding: 15px; color: #7aa2f7; }
-            QGroupBox::title { subcontrol-origin: margin; left: 15px; padding: 0 5px; }
+            QGroupBox { border: 2px solid var(--border); border-radius: 12px; margin-top: 20px; font-weight: bold; padding: 20px; color: var(--accent); }
+            QGroupBox::title { subcontrol-origin: margin; left: 15px; padding: 0 10px; }
             
-            QPushButton { background-color: #24283b; border: 1px solid #7aa2f7; border-radius: 6px; padding: 8px 16px; color: #7aa2f7; font-weight: bold; }
-            QPushButton:hover { background-color: #7aa2f7; color: #1a1b26; }
+            QPushButton { background-color: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 20px; color: var(--accent); font-weight: bold; }
+            QPushButton:hover { background-color: var(--accent); color: var(--accent-fg); border: 1px solid var(--accent); }
+            QPushButton:pressed { background-color: var(--hover); }
             
             QLineEdit, QComboBox, QSpinBox, QTextEdit { 
-                background-color: #24283b; border: 1px solid #24283b; border-radius: 6px; padding: 8px; color: #c0caf5; 
+                background-color: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--fg); 
             }
-            QLineEdit:focus, QComboBox:focus { border: 1px solid #7aa2f7; }
-            QComboBox::drop-down { border-left: 1px solid #24283b; width: 30px; }
+            QLineEdit:focus, QComboBox:focus { border: 1.5px solid var(--accent); }
+            QComboBox::drop-down { border-left: 1px solid var(--border); width: 30px; }
             
             /* Menus and Toolbars */
-            QMenuBar { background-color: #1a1b26; padding: 5px; border-bottom: 1px solid #24283b; }
-            QMenuBar::item:selected { background-color: #24283b; border-radius: 4px; color: #7aa2f7; }
-            QMenu { background-color: #1a1b26; border: 1px solid #24283b; padding: 5px; }
-            QMenu::item:selected { background-color: #7aa2f7; color: #1a1b26; border-radius: 4px; }
+            QMenuBar { background-color: var(--bg); padding: 5px; border-bottom: 1px solid var(--border); }
+            QMenuBar::item:selected { background-color: var(--card-bg); border-radius: 4px; color: var(--accent); }
+            QMenu { background-color: var(--bg); border: 1.5px solid var(--border); padding: 8px; border-radius: 8px; }
+            QMenu::item:selected { background-color: var(--accent); color: var(--accent-fg); border-radius: 4px; }
             
             /* Toolbars */
-            QToolBar { background-color: #1a1b26; border-bottom: 1px solid #24283b; padding: 5px; spacing: 10px; }
+            QToolBar { background-color: var(--bg); border-bottom: 1px solid var(--border); padding: 8px; spacing: 12px; }
             
             /* Status and Progress */
-            QStatusBar { background-color: #1a1b26; color: #c0caf5; border-top: 2px solid #24283b; }
-            QProgressBar { border: 2px solid #24283b; border-radius: 5px; text-align: center; }
-            QProgressBar::chunk { background-color: #7aa2f7; width: 10px; margin: 1px; }
+            QStatusBar { background-color: var(--bg); color: var(--muted); border-top: 1.5px solid var(--border); padding: 5px; }
+            QProgressBar { border: 1.5px solid var(--border); border-radius: 6px; text-align: center; color: var(--fg); font-weight: bold; }
+            QProgressBar::chunk { background-color: var(--accent); border-radius: 4px; margin: 1px; }
             
-            /* Scrollbars Premium Styling (Slim & Modern) */
-            QScrollBar:vertical { background: #1a1b26; width: 10px; margin: 0px; }
-            QScrollBar::handle:vertical { background: #24283b; min-height: 20px; border-radius: 5px; }
-            QScrollBar::handle:vertical:hover { background: #7aa2f7; }
-            QScrollBar:horizontal { background: #1a1b26; height: 10px; margin: 0px; }
-            QScrollBar::handle:horizontal { background: #24283b; min-width: 20px; border-radius: 5px; }
-            QScrollBar::handle:horizontal:hover { background: #7aa2f7; }
+            /* Scrollbars Premium Styling */
+            QScrollBar:vertical { background: var(--bg); width: 12px; margin: 0px; }
+            QScrollBar::handle:vertical { background: var(--border); min-height: 25px; border-radius: 6px; margin: 2px; }
+            QScrollBar::handle:vertical:hover { background: var(--accent); }
+            QScrollBar:horizontal { background: var(--bg); height: 12px; margin: 0px; }
+            QScrollBar::handle:horizontal { background: var(--border); min-width: 25px; border-radius: 6px; margin: 2px; }
+            QScrollBar::handle:horizontal:hover { background: var(--accent); }
             QScrollBar::add-line, QScrollBar::sub-line { background: none; border: none; }
         """
 
     @staticmethod
     def apply_theme(theme="dark"):
-        """Applies theme (dark, light, auto) globally with premium overlays."""
+        """Applies theme (dark, light, auto) globally with premium variable-based overlays."""
         app = QApplication.instance()
         if not app: return
             
@@ -75,21 +110,21 @@ class ThemeManager:
         if t not in ["dark", "light"]: t = "dark"
             
         try:
-            if hasattr(qdarktheme, "setup_theme"):
-                qdarktheme.setup_theme(t, custom_colors={"primary": "#7aa2f7"})
-            else:
-                app.setStyleSheet(qdarktheme.load_stylesheet(t))
+            # First apply qdarktheme base for widget shapes/logic
+            qdarktheme.setup_theme(t, custom_colors={"primary": "#7aa2f7"} if t=="dark" else {"primary": "#2e7de9"})
             
-            # Apply premium V7 overlays always
-            current_qss = app.styleSheet()
-            app.setStyleSheet(current_qss + ThemeManager.get_premium_qss())
+            # Layer custom Design System onto it
+            vars_qss = ThemeManager.get_theme_vars(t)
+            premium_qss = ThemeManager.get_premium_qss()
+            
+            # Set global stylesheet with Variables + Core Styles
+            app.setStyleSheet(vars_qss + premium_qss)
                 
         except Exception as e:
             print(f"Failed to apply theme: {e}")
 
     @staticmethod
     def apply_font_size(size):
-        """Updates the global application font size without a full theme reload."""
         app = QApplication.instance()
         if not app: return
         font = app.font()

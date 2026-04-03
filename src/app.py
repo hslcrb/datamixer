@@ -116,16 +116,16 @@ class AdvancedOpsDialog(QDialog):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(30, 30, 30, 30)
         self.setStyleSheet("""
-            QDialog { background-color: #1a1b26; color: #c0caf5; }
-            QLabel#HeaderTitle { font-size: 24pt; font-weight: 800; color: #7aa2f7; margin-bottom: 5px; }
-            QLabel#SubTitle { font-size: 11pt; color: #565f89; margin-bottom: 30px; }
-            QFrame.Card { background-color: #24283b; border-radius: 12px; border: 1px solid #414868; padding: 15px; }
-            QFrame.Card:hover { border: 1px solid #7aa2f7; }
-            QLabel.CardTitle { font-size: 13pt; font-weight: bold; color: #bb9af7; border-bottom: 2px solid #bb9af7; padding-bottom: 8px; margin-bottom: 12px; }
-            QLabel.CardDesc { font-size: 9pt; color: #9aa5ce; margin-bottom: 15px; }
-            QPushButton.OpBtn { background-color: #1a1b26; color: #c0caf5; border: 1px solid #414868; padding: 12px; border-radius: 6px; font-weight: bold; text-align: left; }
-            QPushButton.OpBtn:hover { background-color: #7aa2f7; color: #1a1b26; border: 1px solid #7aa2f7; }
-            QComboBox { background-color: #1a1b26; color: #c0caf5; border: 1px solid #414868; padding: 8px; border-radius: 4px; min-height: 30px; }
+            QDialog { background-color: var(--bg); color: var(--fg); }
+            QLabel#HeaderTitle { font-size: 24pt; font-weight: 800; color: var(--accent); margin-bottom: 5px; }
+            QLabel#SubTitle { font-size: 11pt; color: var(--muted); margin-bottom: 30px; }
+            QFrame.Card { background-color: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); padding: 15px; }
+            QFrame.Card:hover { border: 1px solid var(--accent); }
+            QLabel.CardTitle { font-size: 13pt; font-weight: bold; color: var(--secondary); border-bottom: 2px solid var(--secondary); padding-bottom: 8px; margin-bottom: 12px; }
+            QLabel.CardDesc { font-size: 9pt; color: var(--muted); margin-bottom: 15px; }
+            QPushButton.OpBtn { background-color: var(--bg); color: var(--fg); border: 1px solid var(--border); padding: 12px; border-radius: 6px; font-weight: bold; text-align: left; }
+            QPushButton.OpBtn:hover { background-color: var(--accent); color: var(--accent-fg); border: 1px solid var(--accent); }
+            QComboBox { background-color: var(--bg); color: var(--fg); border: 1px solid var(--border); padding: 8px; border-radius: 4px; min-height: 30px; }
         """)
 
         # Header Section
@@ -307,9 +307,9 @@ class DataExplorerApp(QMainWindow):
         tg = QGroupBox(); tl = QVBoxLayout(tg)
         header_layout = QHBoxLayout()
         header_label = QLabel("고급 데이터 전처리")
-        header_label.setStyleSheet("font-weight: bold; color: #7aa2f7;")
+        header_label.setStyleSheet("font-weight: bold; color: var(--accent);")
         self.btn_more_ops = QPushButton("더보기 +")
-        self.btn_more_ops.setFixedWidth(80); self.btn_more_ops.setStyleSheet("QPushButton { height: 22px; font-size: 8pt; background-color: #414868; padding: 2px; }")
+        self.btn_more_ops.setFixedWidth(80); self.btn_more_ops.setStyleSheet("QPushButton { height: 22px; font-size: 8pt; background-color: var(--border); padding: 2px; }")
         self.btn_more_ops.clicked.connect(self.open_advanced_ops)
         header_layout.addWidget(header_label); header_layout.addStretch(); header_layout.addWidget(self.btn_more_ops)
         tl.addLayout(header_layout)
@@ -318,7 +318,7 @@ class DataExplorerApp(QMainWindow):
         self.btn_drop_null = QPushButton("결측치 제거"); self.btn_mean_fill = QPushButton("평균값 채우기")
         self.btn_unique = QPushButton("중복 제거"); self.btn_sort = QPushButton("칼럼 정렬")
         for btn in [self.btn_drop_null, self.btn_mean_fill, self.btn_unique, self.btn_sort]:
-            btn.setStyleSheet("QPushButton { background-color: #24283b; color: #c0caf5; height: 30px; }")
+            btn.setStyleSheet("QPushButton { background-color: var(--card-bg); color: var(--fg); height: 30px; }")
             grid_layout.addWidget(btn)
         tl.addLayout(grid_layout)
         self.btn_drop_null.clicked.connect(lambda: self.apply_transform_async("Drop Nulls"))
@@ -334,7 +334,7 @@ class DataExplorerApp(QMainWindow):
         vl.addRow("그래프 종류:", self.combo_viz); self.combo_x = QComboBox(); self.combo_y = QComboBox()
         vl.addRow("X축 칼럼:", self.combo_x); vl.addRow("Y축 칼럼:", self.combo_y)
         self.btn_exe = QPushButton("데이터 엔진 가동"); self.btn_exe.clicked.connect(self.generate_plot_dispatch)
-        self.btn_exe.setStyleSheet("QPushButton { background-color: #7aa2f7; color: #1a1b26; font-weight: bold; height: 40px; border-radius: 5px; }")
+        self.btn_exe.setStyleSheet("QPushButton { background-color: var(--accent); color: var(--accent-fg); font-weight: bold; height: 40px; border-radius: 5px; }")
         vl.addRow(self.btn_exe); layout.addWidget(vg)
         layout.addStretch()
 
