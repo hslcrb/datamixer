@@ -190,27 +190,43 @@ class DataExplorerApp(QMainWindow):
             self.status_label.setText("시스템 테마 동기화 완료.")
 
     def load_data_file_async(self, p):
+        notebook_dir = self.jupyter_server.notebook_dir
+        
         def _task():
             enc = detect_encoding_parallel(p) if p.endswith(".csv") else "utf-8"
             engine = "Polars" if "Polars" in self.combo_engine.currentText() else "Pandas"
             s, df, m = DataEngine.load_data(p, enc, engine)
-            return df, m, enc if s else None
+            
+            if s and df is not None:
+                # Synchronize with Jupyter Server immediately in background
+                cache_path = os.path.join(notebook_dir, "last_loaded_data.parquet")
+                try:
+                    if hasattr(df, 'to_parquet'): # Pandas
+                        df.to_parquet(cache_path)
+                    elif hasattr(df, 'write_parquet'): # Polars
+                        df.write_parquet(cache_path)
+                except Exception as e:
+                    print(f"Background Sync Error: {e}")
+                    
+                return df, m, enc
+            return None
             
         def _ok(res):
             if not res: return
             df, m, enc = res; self.df = df
             self.variables[os.path.basename(p).replace(".","_")] = df
-            self.update_explorer(); self.update_table(); self.update_viz_combos(); self.display_data_mapping(df, enc)
+            
+            # Fluid UI Update Phase
+            self.update_explorer()
+            self.update_table()
+            self.update_viz_combos()
+            self.display_data_mapping(df, enc)
             self.jupyter_console.update_namespace()
-            if hasattr(df, 'to_parquet'): 
-                df.to_parquet(os.path.join(self.jupyter_server.notebook_dir, "last_loaded_data.parquet"))
-            elif hasattr(df, 'write_parquet'): # Polars
-                df.write_parquet(os.path.join(self.jupyter_server.notebook_dir, "last_loaded_data.parquet"))
             
             if self.app_settings["auto_analysis"]:
                 self.start_worker(lambda: IntelligenceCore.analyze_full_profile(df), on_success=self.on_intelligence_finished)
                 
-        self.start_worker(_task, on_success=_ok, on_status=lambda s: self.status_label.setText(s))
+        self.start_worker(_task, on_success=_ok, on_status=lambda s: self.status_label.setText(f"LOADING: {s}"))
 
     def on_intelligence_finished(self, r):
         html = "<b>[AI Intelligence Hub V7 - 통계 리포트]</b><br><br>"

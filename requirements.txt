@@ -3,9 +3,14 @@ numpy
 matplotlib
 seaborn
 PySide6
+PySide6-QtWebEngine
+pyqtdarktheme
 openpyxl
 qtconsole
 ipykernel
 plotly
 pyarrow
-pyqt-darktheme
+polars
+scipy
+darkdetect
+jupyterlab
