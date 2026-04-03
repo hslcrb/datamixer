@@ -109,7 +109,7 @@ class DataExplorerApp(QMainWindow):
         self.setAcceptDrops(True)
         
         self.df = pd.DataFrame(); self.variables = {"df": self.df}; self.workers = []
-        self.app_settings = {"compress": True, "theme": "Auto", "font_size": 10, "auto_analysis": True}
+        self.app_settings = {"compress": False, "theme": "Auto", "font_size": 10, "auto_analysis": True}
         
         # Apply Base Theme and Premium Overlays
         ThemeManager.apply_theme(self.app_settings["theme"])
@@ -177,13 +177,19 @@ class DataExplorerApp(QMainWindow):
         self.setCorner(Qt.BottomLeftCorner, Qt.BottomDockWidgetArea)
         self.setCorner(Qt.BottomRightCorner, Qt.BottomDockWidgetArea)
 
-        # Explorer (Left)
+        # LEFT SIDEBAR (Explorer + Control)
+        # 1. Explorer Tree
         self.explorer_dock = QDockWidget("변수 매니저 (Multi-Engine)", self)
         self.explorer_tree = QTreeWidget(); self.explorer_tree.setHeaderLabels(["변수명", "라이브러리/엔진", "메모리 점유"])
         self.explorer_tree.itemClicked.connect(self.on_variable_clicked); self.explorer_tree.setIndentation(15)
         self.explorer_dock.setWidget(self.explorer_tree); self.addDockWidget(Qt.LeftDockWidgetArea, self.explorer_dock)
+
+        # 2. Control Panel (Properties) - Moved to Left to avoid Right Clutter
+        self.control_dock = QDockWidget("데이터 워크벤치 설정", self)
+        self.setup_props_panel(); self.control_dock.setWidget(self.props_container)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.control_dock)
         
-        # AI Insight & Code Trace (Right - Tabified)
+        # RIGHT SIDEBAR (Tabified Insights)
         self.insight_dock = QDockWidget("AI Core V7 인사이트 리포트", self)
         self.insight_output = QTextEdit(); self.insight_output.setReadOnly(True)
         self.insight_dock.setWidget(self.insight_output); self.addDockWidget(Qt.RightDockWidgetArea, self.insight_dock)
@@ -192,24 +198,23 @@ class DataExplorerApp(QMainWindow):
         self.trace_view = QTextEdit(); self.trace_view.setReadOnly(True)
         self.trace_view.setStyleSheet("QTextEdit { background-color: #1a1b26; color: #9ece6a; font-family: 'Courier New', monospace; font-size: 11pt; border: none; }")
         self.trace_dock.setWidget(self.trace_view); self.addDockWidget(Qt.RightDockWidgetArea, self.trace_dock)
-        self.tabifyDockWidget(self.insight_dock, self.trace_dock) # Keep right panel lean
+        
+        # Tabify Insights and Trace to save horizontal space
+        self.tabifyDockWidget(self.insight_dock, self.trace_dock)
 
-        # Control Panel (Right - Below Tabs)
-        self.control_dock = QDockWidget("데이터 워크벤치 설정", self)
-        self.setup_props_panel(); self.control_dock.setWidget(self.props_container); self.addDockWidget(Qt.RightDockWidgetArea, self.control_dock)
-
-        # Bottom Console (Professional Terminal Height)
+        # BOTTOM (Terminal Core)
         self.console_dock = QDockWidget("Jupyter Interactive Workbench Core", self)
         self.console_dock.setWidget(self.jupyter_console.widget); self.addDockWidget(Qt.BottomDockWidgetArea, self.console_dock)
         
-        # Initial size tuning (Higher terminal priority)
+        # Initial size tuning
         QTimer.singleShot(500, lambda: self.resize_docks())
 
     def resize_docks(self):
         """Intelligently sets initial layout ratios for professional workstation feel."""
         self.resizeDocks([self.explorer_dock], [300], Qt.Horizontal)
+        self.resizeDocks([self.explorer_dock, self.control_dock], [400, 400], Qt.Vertical) # Left split
         self.resizeDocks([self.console_dock], [400], Qt.Vertical)
-        self.resizeDocks([self.control_dock], [400], Qt.Horizontal)
+        self.resizeDocks([self.insight_dock], [400], Qt.Horizontal)
 
     def setup_props_panel(self):
         self.props_container = QWidget(); layout = QVBoxLayout(self.props_container)
