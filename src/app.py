@@ -328,24 +328,30 @@ class DataExplorerApp(QMainWindow):
         self.table_view.setModel(model)
 
     def on_data_edited_sync(self):
-        """Synchronizes edits from the Pandas UI model back to the main engine (Pd or Pl)."""
+        """Synchronizes edits silently without interrupting the user's focus."""
         m = self.table_view.model()
         if not m: return
         
-        # Capture the modified data
         edited_df = m._data
-        
-        # If original was Polars, sync back by converting
         if isinstance(self.df, pl.DataFrame):
             self.df = pl.from_pandas(edited_df)
-            self.status_label.setText("SYSTEM: Polars 엔진 동기화 완료 (수정됨)")
         else:
-            self.df = edited_df # Pandas is already reference-synced, but good for clarity
-            self.status_label.setText("SYSTEM: Pandas 레코드 업데이트 완료")
+            self.df = edited_df 
             
-        # Re-trigger intelligence if needed
+        self.status_label.setText("SYSTEM: 데이터 실시간 동기화 중 (편집 모드)")
+        
+        # Re-trigger intelligence BUT WITHOUT auto-visual-jump
         if self.app_settings["auto_analysis"]:
-            self.start_worker(lambda: IntelligenceCore.analyze_full_profile(self.df), on_success=self.on_intelligence_finished)
+            # Pass a silent flag or custom callback that won't trigger generate_plot_dispatch
+            self.start_worker(lambda: IntelligenceCore.analyze_full_profile(self.df), 
+                               on_success=self.on_intelligence_finished_silent)
+
+    def on_intelligence_finished_silent(self, r):
+        """Update terminal output but don't jump tabs or generate new plots during editing."""
+        html = "<b>[AI Intelligence Hub V7 - 통계 리포트 (실시간)]</b><br><br>"
+        for i in r["insights"]: html += f"<span style='color: #7aa2f7;'>⚡</span> {i}<br><br>"
+        self.insight_output.setHtml(html)
+        self.status_label.setText("SYSTEM: AI 분석 결과 최신화 완료 (편집 중)")
 
     def update_viz_combos(self): 
         c = list(self.df.columns); self.combo_x.clear(); self.combo_y.clear(); self.combo_x.addItems(c); self.combo_y.addItems(c)
