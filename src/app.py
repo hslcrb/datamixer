@@ -173,30 +173,43 @@ class DataExplorerApp(QMainWindow):
         self.status_bar.addPermanentWidget(self.server_label)
 
     def setup_docks(self):
-        # Explorer (Professional Columns)
+        # Professional Corner Mapping: Bottom area spans full width for max terminal space
+        self.setCorner(Qt.BottomLeftCorner, Qt.BottomDockWidgetArea)
+        self.setCorner(Qt.BottomRightCorner, Qt.BottomDockWidgetArea)
+
+        # Explorer (Left)
         self.explorer_dock = QDockWidget("변수 매니저 (Multi-Engine)", self)
         self.explorer_tree = QTreeWidget(); self.explorer_tree.setHeaderLabels(["변수명", "라이브러리/엔진", "메모리 점유"])
         self.explorer_tree.itemClicked.connect(self.on_variable_clicked); self.explorer_tree.setIndentation(15)
         self.explorer_dock.setWidget(self.explorer_tree); self.addDockWidget(Qt.LeftDockWidgetArea, self.explorer_dock)
         
-        # AI Insight
+        # AI Insight & Code Trace (Right - Tabified)
         self.insight_dock = QDockWidget("AI Core V7 인사이트 리포트", self)
         self.insight_output = QTextEdit(); self.insight_output.setReadOnly(True)
         self.insight_dock.setWidget(self.insight_output); self.addDockWidget(Qt.RightDockWidgetArea, self.insight_dock)
 
-        # Bottom Console
-        self.console_dock = QDockWidget("Jupyter Interactive Hub", self)
+        self.trace_dock = QDockWidget("실시간 파이썬 코드 트레이스", self)
+        self.trace_view = QTextEdit(); self.trace_view.setReadOnly(True)
+        self.trace_view.setStyleSheet("QTextEdit { background-color: #1a1b26; color: #9ece6a; font-family: 'Courier New', monospace; font-size: 11pt; border: none; }")
+        self.trace_dock.setWidget(self.trace_view); self.addDockWidget(Qt.RightDockWidgetArea, self.trace_dock)
+        self.tabifyDockWidget(self.insight_dock, self.trace_dock) # Keep right panel lean
+
+        # Control Panel (Right - Below Tabs)
+        self.control_dock = QDockWidget("데이터 워크벤치 설정", self)
+        self.setup_props_panel(); self.control_dock.setWidget(self.props_container); self.addDockWidget(Qt.RightDockWidgetArea, self.control_dock)
+
+        # Bottom Console (Professional Terminal Height)
+        self.console_dock = QDockWidget("Jupyter Interactive Workbench Core", self)
         self.console_dock.setWidget(self.jupyter_console.widget); self.addDockWidget(Qt.BottomDockWidgetArea, self.console_dock)
         
-        # NEW: Python Code Trace Dock (Professional Feature)
-        self.trace_dock = QDockWidget("실시간 파이썬 코드 트레이스 (Code Transparency)", self)
-        self.trace_view = QTextEdit(); self.trace_view.setReadOnly(True)
-        self.trace_view.setStyleSheet("QTextEdit { background-color: #1a1b26; color: #9ece6a; font-family: 'Courier New'; font-size: 11pt; border: none; }")
-        self.trace_dock.setWidget(self.trace_view); self.addDockWidget(Qt.RightDockWidgetArea, self.trace_dock)
+        # Initial size tuning (Higher terminal priority)
+        QTimer.singleShot(500, lambda: self.resize_docks())
 
-        # Control Panel
-        self.control_dock = QDockWidget("데이터 워크벤치 설정", self)
-        self.setup_props_panel(); self.control_dock.setWidget(self.props_container); self.addDockWidget(Qt.RightDockWidgetArea, self.control_dock, Qt.Vertical)
+    def resize_docks(self):
+        """Intelligently sets initial layout ratios for professional workstation feel."""
+        self.resizeDocks([self.explorer_dock], [300], Qt.Horizontal)
+        self.resizeDocks([self.console_dock], [400], Qt.Vertical)
+        self.resizeDocks([self.control_dock], [400], Qt.Horizontal)
 
     def setup_props_panel(self):
         self.props_container = QWidget(); layout = QVBoxLayout(self.props_container)
