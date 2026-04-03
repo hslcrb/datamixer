@@ -300,7 +300,9 @@ class DataExplorerApp(QMainWindow):
 
     def display_data_mapping(self, df, e):
         info = f"<b>Encoding:</b> <span style='color: #9ece6a;'>{e}</span><br><b>Shape:</b> <span style='color: #7aa2f7;'>{df.shape[0]:,} x {df.shape[1]:,}</span><br><br><b>스키마 정보:</b><br>"
-        for c in df.columns: info += f"- {c}: {str(df[c].dtype if hasattr(df[c], 'dtype') else 'Polars Type')}<br>"
+        for c in df.columns:
+            dtype_str = str(df[c].dtype if hasattr(df[c], 'dtype') else 'Polars Type')
+            info += f"- {c}: <span style='color: #e0af68; font-weight: bold; font-size: 1.1em;'>{dtype_str}</span><br>"
         self.lbl_data_info.setText(info)
 
     def load_data_async(self):
