@@ -102,11 +102,11 @@ class MiniBrowser(QWidget):
         self.browser.setUrl(QUrl(u))
 
 class AdvancedOpsDialog(QDialog):
-    """Luxury 'Reactor Panel' for Nuclear-grade Data Transformations."""
+    """지능형 데이터 변환 전용 '원자로 코어 패널' (V7 프리미엄 디자인)."""
     def __init__(self, parent=None, columns=None):
         super().__init__(parent)
-        self.setWindowTitle("DATAMIXER NUCLEAR OPS PANEL v7")
-        self.setMinimumSize(850, 500)
+        self.setWindowTitle("DATAMIXER NUCLEAR CORE : 초정밀 데이터 변환 센터")
+        self.setMinimumSize(950, 650)
         self.columns = columns or []
         self.selected_op = None
         self.selected_params = {}
@@ -114,61 +114,74 @@ class AdvancedOpsDialog(QDialog):
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(30, 30, 30, 30)
         self.setStyleSheet("""
             QDialog { background-color: #1a1b26; color: #c0caf5; }
-            QGroupBox { border: 1px solid #7aa2f7; border-top: 25px solid #7aa2f7; margin-top: 15px; color: #1a1b26; font-weight: bold; }
-            QPushButton { background-color: #24283b; color: #c0caf5; border: 1px solid #414868; padding: 12px; border-radius: 6px; font-weight: bold; }
-            QPushButton:hover { background-color: #7aa2f7; color: #1a1b26; }
-            QComboBox { background-color: #24283b; color: #c0caf5; border: 1px solid #414868; padding: 5px; }
-            QLabel { color: #565f89; font-weight: bold; }
+            QLabel#HeaderTitle { font-size: 24pt; font-weight: 800; color: #7aa2f7; margin-bottom: 5px; }
+            QLabel#SubTitle { font-size: 11pt; color: #565f89; margin-bottom: 30px; }
+            QFrame.Card { background-color: #24283b; border-radius: 12px; border: 1px solid #414868; padding: 15px; }
+            QFrame.Card:hover { border: 1px solid #7aa2f7; }
+            QLabel.CardTitle { font-size: 13pt; font-weight: bold; color: #bb9af7; border-bottom: 2px solid #bb9af7; padding-bottom: 8px; margin-bottom: 12px; }
+            QLabel.CardDesc { font-size: 9pt; color: #9aa5ce; margin-bottom: 15px; }
+            QPushButton.OpBtn { background-color: #1a1b26; color: #c0caf5; border: 1px solid #414868; padding: 12px; border-radius: 6px; font-weight: bold; text-align: left; }
+            QPushButton.OpBtn:hover { background-color: #7aa2f7; color: #1a1b26; border: 1px solid #7aa2f7; }
+            QComboBox { background-color: #1a1b26; color: #c0caf5; border: 1px solid #414868; padding: 8px; border-radius: 4px; min-height: 30px; }
         """)
 
-        title = QLabel("CORE TRANSFORMATION REACTOR"); title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 20pt; font-weight: bold; color: #7aa2f7; margin-bottom: 20px;")
-        main_layout.addWidget(title)
+        # Header Section
+        header = QLabel("NUCLEAR CORE REACTOR"); header.setObjectName("HeaderTitle"); header.setAlignment(Qt.AlignCenter)
+        sub = QLabel("데이터의 물리적 구조를 재정의하는 초정밀 변환 엔진 시스템"); sub.setObjectName("SubTitle"); sub.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(header); main_layout.addWidget(sub)
 
-        grid = QGridLayout()
+        grid = QGridLayout(); grid.setSpacing(25)
         
-        # NUCLEAR CLEANING
-        g1 = QGroupBox("NUCLEAR CLEANING"); l1 = QVBoxLayout(g1)
-        ops1 = [("⚡ Drop All Nulls", "Drop Nulls"), ("🧩 Smart Fill (Forward)", "Fill Nulls (Mean)"), ("💎 Unique Extraction", "Remove Duplicates")]
+        # 1. 고정밀 클리닝 (Cleaning)
+        c1 = QFrame(); c1.setProperty("class", "Card"); l1 = QVBoxLayout(c1)
+        l1.addWidget(QLabel("🧹 NUCLEAR CLEANING", className="CardTitle"))
+        l1.addWidget(QLabel("데이터 오염 및 결측치를 물리적으로 제거합니다.", className="CardDesc"))
+        ops1 = [("⚡ 모든 결측치(NaN) 즉시 제거", "Drop Nulls"), ("🧩 선형 보간 기반 스마트 채우기", "Fill Nulls (Mean)"), ("💎 중복 로우 물리적 제거", "Remove Duplicates")]
         for label, op in ops1:
-            btn = QPushButton(label); btn.clicked.connect(lambda _, o=op: self.finalize(o))
+            btn = QPushButton(f"  {label}"); btn.setProperty("class", "OpBtn"); btn.clicked.connect(lambda _, o=op: self.finalize(o))
             l1.addWidget(btn)
-        grid.addWidget(g1, 0, 0)
+        l1.addStretch(); grid.addWidget(c1, 0, 0)
 
-        # SCALING & POWER
-        g2 = QGroupBox("SCALING & POWER"); l2 = QVBoxLayout(g2)
-        l2.addWidget(QLabel("Target Column Selection:"))
-        self.combo_target_col = QComboBox(); self.combo_target_col.addItems(self.columns)
+        # 2. 통계적 정규화 (Scaling)
+        c2 = QFrame(); c2.setProperty("class", "Card"); l2 = QVBoxLayout(c2)
+        l2.addWidget(QLabel("⚖️ SCALING & POWER", className="CardTitle"))
+        l2.addWidget(QLabel("대상 칼럼의 수치 범위를 머신러닝 최적 상태로 조정합니다.", className="CardDesc"))
+        l2.addWidget(QLabel("변환 대상 칼럼 선택:")); self.combo_target_col = QComboBox(); self.combo_target_col.addItems(self.columns)
         l2.addWidget(self.combo_target_col)
-        
-        ops2 = [("⚖️ Standardize (Z-Score)", "Standardize (Z-Score)"), ("📏 Normalize (Min-Max)", "Normalize (Min-Max)"), ("📈 Log Variance (log1p)", "Log Transform")]
+        ops2 = [("📊 표준 점수화 (Z-Score Standard)", "Standardize (Z-Score)"), ("📏 최소-최대 정규화 (Min-Max)", "Normalize (Min-Max)"), ("📈 로그 비대칭 보정 (Log1p)", "Log Transform")]
         for label, op in ops2:
-            btn = QPushButton(label); btn.clicked.connect(lambda _, o=op: self.finalize(o))
+            btn = QPushButton(f"  {label}"); btn.setProperty("class", "OpBtn"); btn.clicked.connect(lambda _, o=op: self.finalize(o))
             l2.addWidget(btn)
-        grid.addWidget(g2, 0, 1)
+        l1.addStretch(); grid.addWidget(c2, 0, 1)
 
-        # OUTLIER SHIELD
-        g3 = QGroupBox("OUTLIER SHIELD"); l3 = QVBoxLayout(g3)
-        ops3 = [("🛡️ IQR Filter (1.5x)", "IQR Outlier Removal"), ("🧨 Manual Trim (Top/Bottom)", "IQR Outlier Removal")]
+        # 3. 이상치 여과 (Outlier)
+        c3 = QFrame(); c3.setProperty("class", "Card"); l3 = QVBoxLayout(c3)
+        l3.addWidget(QLabel("🛡️ OUTLIER SHIELD", className="CardTitle"))
+        l3.addWidget(QLabel("통계적 분포를 벗어난 극단값을 감지하여 여과합니다.", className="CardDesc"))
+        ops3 = [("🛸 IQR 기준 이상치 자동 제거 (1.5x)", "IQR Outlier Removal"), ("🧨 극단값 제거 (Percentile Trim)", "IQR Outlier Removal")]
         for label, op in ops3:
-            btn = QPushButton(label); btn.clicked.connect(lambda _, o=op: self.finalize(o))
+            btn = QPushButton(f"  {label}"); btn.setProperty("class", "OpBtn"); btn.clicked.connect(lambda _, o=op: self.finalize(o))
             l3.addWidget(btn)
-        grid.addWidget(g3, 1, 0)
+        l3.addStretch(); grid.addWidget(c3, 1, 0)
 
-        # FEATURE FUSION
-        g4 = QGroupBox("FEATURE FUSION"); l4 = QVBoxLayout(g4)
-        ops4 = [("🔗 One-Hot Encode (Dummy)", "One-Hot Encoding"), ("🏷️ Label Encode", "One-Hot Encoding")]
+        # 4. 기능적 핵융합 (Encoding)
+        c4 = QFrame(); c4.setProperty("class", "Card"); l4 = QVBoxLayout(c4)
+        l4.addWidget(QLabel("🔗 FEATURE FUSION", className="CardTitle"))
+        l4.addWidget(QLabel("범주형 데이터를 수치적 벡터로 전환하여 기능을 확장합니다.", className="CardDesc"))
+        ops4 = [("🌓 원-핫 인코딩 (One-Hot Dummy)", "One-Hot Encoding"), ("🏷️ 라벨 인코딩 (Label Labeling)", "One-Hot Encoding")]
         for label, op in ops4:
-            btn = QPushButton(label); btn.clicked.connect(lambda _, o=op: self.finalize(o))
+            btn = QPushButton(f"  {label}"); btn.setProperty("class", "OpBtn"); btn.clicked.connect(lambda _, o=op: self.finalize(o))
             l4.addWidget(btn)
-        grid.addWidget(g4, 1, 1)
+        l4.addStretch(); grid.addWidget(c4, 1, 1)
 
-        main_layout.addLayout(grid)
+        main_layout.addLayout(grid); main_layout.addStretch()
         
-        footer = QLabel("NOTICE: ALL OPS CAUSE IRREVERSIBLE CORE MUTATION (CHECK CODE TRACE)"); footer.setAlignment(Qt.AlignCenter)
-        footer.setStyleSheet("color: #bb9af7; font-size: 10pt; margin-top: 20px; font-style: italic;")
+        # Footer
+        footer = QLabel("<b>경고: 모든 조작은 원본 데이터의 물리적 구조를 변경하며, 파이썬 코드 트레이스에 실시간 기록됩니다.</b>"); footer.setAlignment(Qt.AlignCenter)
+        footer.setStyleSheet("color: #f7768e; font-size: 10pt; margin-top: 25px;")
         main_layout.addWidget(footer)
 
     def finalize(self, op):
