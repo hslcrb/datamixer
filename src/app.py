@@ -137,8 +137,8 @@ class AdvancedOpsDialog(QDialog):
         
         # 1. 고정밀 클리닝 (Cleaning)
         c1 = QFrame(); c1.setProperty("class", "Card"); l1 = QVBoxLayout(c1)
-        l1.addWidget(QLabel("🧹 NUCLEAR CLEANING", className="CardTitle"))
-        l1.addWidget(QLabel("데이터 오염 및 결측치를 물리적으로 제거합니다.", className="CardDesc"))
+        lbl1 = QLabel("🧹 NUCLEAR CLEANING"); lbl1.setProperty("class", "CardTitle"); l1.addWidget(lbl1)
+        lbl1_desc = QLabel("데이터 오염 및 결측치를 물리적으로 제거합니다."); lbl1_desc.setProperty("class", "CardDesc"); l1.addWidget(lbl1_desc)
         ops1 = [("⚡ 모든 결측치(NaN) 즉시 제거", "Drop Nulls"), ("🧩 선형 보간 기반 스마트 채우기", "Fill Nulls (Mean)"), ("💎 중복 로우 물리적 제거", "Remove Duplicates")]
         for label, op in ops1:
             btn = QPushButton(f"  {label}"); btn.setProperty("class", "OpBtn"); btn.clicked.connect(lambda _, o=op: self.finalize(o))
@@ -147,8 +147,8 @@ class AdvancedOpsDialog(QDialog):
 
         # 2. 통계적 정규화 (Scaling)
         c2 = QFrame(); c2.setProperty("class", "Card"); l2 = QVBoxLayout(c2)
-        l2.addWidget(QLabel("⚖️ SCALING & POWER", className="CardTitle"))
-        l2.addWidget(QLabel("대상 칼럼의 수치 범위를 머신러닝 최적 상태로 조정합니다.", className="CardDesc"))
+        lbl2 = QLabel("⚖️ SCALING & POWER"); lbl2.setProperty("class", "CardTitle"); l2.addWidget(lbl2)
+        lbl2_desc = QLabel("대상 칼럼의 수치 범위를 머신러닝 최적 상태로 조정합니다."); lbl2_desc.setProperty("class", "CardDesc"); l2.addWidget(lbl2_desc)
         l2.addWidget(QLabel("변환 대상 칼럼 선택:")); self.combo_target_col = QComboBox(); self.combo_target_col.addItems(self.columns)
         l2.addWidget(self.combo_target_col)
         ops2 = [("📊 표준 점수화 (Z-Score Standard)", "Standardize (Z-Score)"), ("📏 최소-최대 정규화 (Min-Max)", "Normalize (Min-Max)"), ("📈 로그 비대칭 보정 (Log1p)", "Log Transform")]
@@ -159,8 +159,8 @@ class AdvancedOpsDialog(QDialog):
 
         # 3. 이상치 여과 (Outlier)
         c3 = QFrame(); c3.setProperty("class", "Card"); l3 = QVBoxLayout(c3)
-        l3.addWidget(QLabel("🛡️ OUTLIER SHIELD", className="CardTitle"))
-        l3.addWidget(QLabel("통계적 분포를 벗어난 극단값을 감지하여 여과합니다.", className="CardDesc"))
+        lbl3 = QLabel("🛡️ OUTLIER SHIELD"); lbl3.setProperty("class", "CardTitle"); l3.addWidget(lbl3)
+        lbl3_desc = QLabel("통계적 분포를 벗어난 극단값을 감지하여 여과합니다."); lbl3_desc.setProperty("class", "CardDesc"); l3.addWidget(lbl3_desc)
         ops3 = [("🛸 IQR 기준 이상치 자동 제거 (1.5x)", "IQR Outlier Removal"), ("🧨 극단값 제거 (Percentile Trim)", "IQR Outlier Removal")]
         for label, op in ops3:
             btn = QPushButton(f"  {label}"); btn.setProperty("class", "OpBtn"); btn.clicked.connect(lambda _, o=op: self.finalize(o))
@@ -169,8 +169,8 @@ class AdvancedOpsDialog(QDialog):
 
         # 4. 기능적 핵융합 (Encoding)
         c4 = QFrame(); c4.setProperty("class", "Card"); l4 = QVBoxLayout(c4)
-        l4.addWidget(QLabel("🔗 FEATURE FUSION", className="CardTitle"))
-        l4.addWidget(QLabel("범주형 데이터를 수치적 벡터로 전환하여 기능을 확장합니다.", className="CardDesc"))
+        lbl4 = QLabel("🔗 FEATURE FUSION"); lbl4.setProperty("class", "CardTitle"); l4.addWidget(lbl4)
+        lbl4_desc = QLabel("범주형 데이터를 수치적 벡터로 전환하여 기능을 확장합니다."); lbl4_desc.setProperty("class", "CardDesc"); l4.addWidget(lbl4_desc)
         ops4 = [("🌓 원-핫 인코딩 (One-Hot Dummy)", "One-Hot Encoding"), ("🏷️ 라벨 인코딩 (Label Labeling)", "One-Hot Encoding")]
         for label, op in ops4:
             btn = QPushButton(f"  {label}"); btn.setProperty("class", "OpBtn"); btn.clicked.connect(lambda _, o=op: self.finalize(o))
