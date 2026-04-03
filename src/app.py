@@ -2,6 +2,8 @@ import sys
 import io
 import os
 import contextlib
+import base64
+import json
 import pandas as pd
 import polars as pl
 import numpy as np
@@ -50,7 +52,6 @@ class EditableTableView(QTableView):
             super().keyPressEvent(event)
             return
         
-        # If user tries to type/edit while restricted
         if m.read_only and (event.text().isalnum() or event.key() in (Qt.Key_Backspace, Qt.Key_Delete, Qt.Key_Period)):
             from PySide6.QtWidgets import QToolTip
             pos = self.viewport().mapToGlobal(self.visualRect(self.currentIndex()).center())
@@ -66,7 +67,6 @@ class MiniBrowser(QWidget):
         super().__init__(parent)
         self.layout = QVBoxLayout(self)
         
-        # Profile Sync
         profile_path = os.path.join(os.getcwd(), "browser_enterprise_profile")
         if not os.path.exists(profile_path): os.makedirs(profile_path)
         self.profile = QWebEngineProfile("EnterpriseProfile", self)
@@ -104,6 +104,7 @@ class MiniBrowser(QWidget):
 class DataExplorerApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setObjectName("MainWindow")
         self.setWindowTitle("Datamixer Enterprise - Multi-Engine AI Workstation V7")
         self.resize(1700, 1050)
         self.setAcceptDrops(True)
@@ -111,7 +112,6 @@ class DataExplorerApp(QMainWindow):
         self.df = pd.DataFrame(); self.variables = {"df": self.df}; self.workers = []
         self.app_settings = {"compress": False, "theme": "Auto", "font_size": 10, "auto_analysis": True}
         
-        # Apply Base Theme and Premium Overlays
         ThemeManager.apply_theme(self.app_settings["theme"])
         
         self.jupyter_console = JupyterConsoleManager(self)
@@ -120,7 +120,6 @@ class DataExplorerApp(QMainWindow):
         
         self.init_ui()
         self.init_menu_and_toolbar()
-        
         self.status_label.setText("Datamixer Enterprise Hub V7 - All Engines Operational (Pd/Pl/Np)")
 
     def closeEvent(self, event):
@@ -135,7 +134,6 @@ class DataExplorerApp(QMainWindow):
         
         # Grid Tab
         self.view_tab = QWidget(); v1 = QVBoxLayout(self.view_tab)
-        # Header for the Grid
         self.grid_header_layout = QHBoxLayout()
         self.lbl_grid_mode = QLabel("MODE: READ-ONLY")
         self.lbl_grid_mode.setStyleSheet("color: #bb9af7; font-weight: bold; margin-left: 10px;")
@@ -156,126 +154,108 @@ class DataExplorerApp(QMainWindow):
         v2.addWidget(self.browser); v2.addWidget(self.static_canvas_container); self.static_canvas_container.hide()
         self.central_tabs.addTab(self.viz_tab, "분석 리포트")
         
-        # Jupyter Workbench
         self.jupyter_tab = QWidget(); v3 = QVBoxLayout(self.jupyter_tab); self.wb_browser = QWebEngineView()
         QTimer.singleShot(1500, lambda: self.wb_browser.setUrl(QUrl(self.jupyter_server.url)))
         v3.addWidget(self.wb_browser); self.central_tabs.addTab(self.jupyter_tab, "주피터 주크벤치")
-
-        # Browser
         self.browser_tab = MiniBrowser(); self.central_tabs.addTab(self.browser_tab, "데이터 브라우저")
         
         self.setup_docks()
         self.status_bar = QStatusBar(); self.setStatusBar(self.status_bar)
         self.status_label = QLabel("SYSTEM: HEALTHY"); self.status_bar.addWidget(self.status_label)
-        
-        # Server Indicator
         self.server_label = QLabel("● JUPYTER ONLINE"); self.server_label.setStyleSheet("color: #9ece6a; font-weight: bold; margin-right: 15px;")
         self.status_bar.addPermanentWidget(self.server_label)
 
     def setup_docks(self):
-        # Professional Corner Mapping: Bottom area spans full width for max terminal space
         self.setCorner(Qt.BottomLeftCorner, Qt.BottomDockWidgetArea)
         self.setCorner(Qt.BottomRightCorner, Qt.BottomDockWidgetArea)
 
-        # LEFT SIDEBAR (Explorer + Control)
-        # 1. Explorer Tree
+        # LEFT
         self.explorer_dock = QDockWidget("변수 매니저 (Multi-Engine)", self)
+        self.explorer_dock.setObjectName("ExplorerDock")
         self.explorer_tree = QTreeWidget(); self.explorer_tree.setHeaderLabels(["변수명", "라이브러리/엔진", "메모리 점유"])
         self.explorer_tree.itemClicked.connect(self.on_variable_clicked); self.explorer_tree.setIndentation(15)
         self.explorer_dock.setWidget(self.explorer_tree); self.addDockWidget(Qt.LeftDockWidgetArea, self.explorer_dock)
 
-        # 2. Control Panel (Properties) - Moved to Left to avoid Right Clutter
         self.control_dock = QDockWidget("데이터 워크벤치 설정", self)
+        self.control_dock.setObjectName("ControlDock")
         self.setup_props_panel(); self.control_dock.setWidget(self.props_container)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.control_dock)
         
-        # RIGHT SIDEBAR (Tabified Insights)
+        # RIGHT
         self.insight_dock = QDockWidget("AI Core V7 인사이트 리포트", self)
+        self.insight_dock.setObjectName("InsightDock")
         self.insight_output = QTextEdit(); self.insight_output.setReadOnly(True)
         self.insight_dock.setWidget(self.insight_output); self.addDockWidget(Qt.RightDockWidgetArea, self.insight_dock)
 
         self.trace_dock = QDockWidget("실시간 파이썬 코드 트레이스", self)
+        self.trace_dock.setObjectName("TraceDock")
         self.trace_view = QTextEdit(); self.trace_view.setReadOnly(True)
         self.trace_view.setStyleSheet("QTextEdit { background-color: #1a1b26; color: #9ece6a; font-family: 'Courier New', monospace; font-size: 11pt; border: none; }")
         self.trace_dock.setWidget(self.trace_view); self.addDockWidget(Qt.RightDockWidgetArea, self.trace_dock)
-        
-        # Tabify Insights and Trace to save horizontal space
         self.tabifyDockWidget(self.insight_dock, self.trace_dock)
 
-        # BOTTOM (Terminal Core)
+        # BOTTOM
         self.console_dock = QDockWidget("Jupyter Interactive Workbench Core", self)
+        self.console_dock.setObjectName("ConsoleDock")
         self.console_dock.setWidget(self.jupyter_console.widget); self.addDockWidget(Qt.BottomDockWidgetArea, self.console_dock)
         
-        # Initial size tuning
         QTimer.singleShot(500, lambda: self.resize_docks())
 
     def resize_docks(self):
-        """Intelligently sets initial layout ratios for professional workstation feel."""
         self.resizeDocks([self.explorer_dock], [300], Qt.Horizontal)
-        self.resizeDocks([self.explorer_dock, self.control_dock], [400, 400], Qt.Vertical) # Left split
+        self.resizeDocks([self.explorer_dock, self.control_dock], [400, 400], Qt.Vertical)
         self.resizeDocks([self.console_dock], [400], Qt.Vertical)
         self.resizeDocks([self.insight_dock], [400], Qt.Horizontal)
 
     def setup_props_panel(self):
         self.props_container = QWidget(); layout = QVBoxLayout(self.props_container)
-        
-        # Engine Control
         eg = QGroupBox("Core 엔진 컨트롤"); el = QFormLayout(eg)
         self.combo_engine = QComboBox(); self.combo_engine.addItems(["Polars (최고 성능)", "Pandas (안정적 특성)"])
         el.addRow("핵심 파싱 엔진:", self.combo_engine)
-        self.lbl_data_info = QLabel("지능형 맵핑 대기 중..."); self.lbl_data_info.setWordWrap(True); self.lbl_data_info.setToolTip("데이터의 인코딩과 스키마 정보가 표시됩니다.")
+        self.lbl_data_info = QLabel("지능형 맵핑 대기 중..."); self.lbl_data_info.setWordWrap(True)
         el.addRow(self.lbl_data_info); layout.addWidget(eg)
 
-        # Advanced Transformation Control (NEW)
         tg = QGroupBox("고급 데이터 전처리 (Advanced Ops)"); tl = QVBoxLayout(tg)
         grid_layout = QHBoxLayout()
         self.btn_drop_null = QPushButton("결측치 제거"); self.btn_mean_fill = QPushButton("평균값 채우기")
         self.btn_unique = QPushButton("중복 제거"); self.btn_sort = QPushButton("칼럼 정렬")
-        
         for btn in [self.btn_drop_null, self.btn_mean_fill, self.btn_unique, self.btn_sort]:
             btn.setStyleSheet("QPushButton { background-color: #24283b; color: #c0caf5; height: 30px; }")
             grid_layout.addWidget(btn)
         tl.addLayout(grid_layout)
-        
         self.btn_drop_null.clicked.connect(lambda: self.apply_transform_async("Drop Nulls"))
         self.btn_mean_fill.clicked.connect(lambda: self.apply_transform_async("Fill Nulls (Mean)"))
         self.btn_unique.clicked.connect(lambda: self.apply_transform_async("Remove Duplicates"))
         self.btn_sort.clicked.connect(lambda: self.apply_transform_async("Sort"))
         layout.addWidget(tg)
         
-        # Viz Control
         vg = QGroupBox("지능형 시각 결과 제어"); vl = QFormLayout(vg)
         self.combo_lib = QComboBox(); self.combo_lib.addItems(["Plotly (인터랙티브)", "Matplotlib (정적 PNG)"])
         vl.addRow("시각화 엔진:", self.combo_lib)
-        self.combo_viz = QComboBox()
-        self.combo_viz.addItems([
-            "히스토그램", "산점도", "박스 플롯", "바이올린 플롯", 
-            "선 그래프", "바 차트", "파이 차트", "영역 차트", 
-            "히트맵 (상관관계)", "밀도 히트맵"
-        ])
+        self.combo_viz = QComboBox(); self.combo_viz.addItems(["히스토그램", "산점도", "박스 플롯", "바이올린 플롯", "선 그래프", "바 차트", "파이 차트", "영역 차트"])
         vl.addRow("그래프 종류:", self.combo_viz); self.combo_x = QComboBox(); self.combo_y = QComboBox()
         vl.addRow("X축 칼럼:", self.combo_x); vl.addRow("Y축 칼럼:", self.combo_y)
         self.btn_exe = QPushButton("데이터 엔진 가동"); self.btn_exe.clicked.connect(self.generate_plot_dispatch)
         self.btn_exe.setStyleSheet("QPushButton { background-color: #7aa2f7; color: #1a1b26; font-weight: bold; height: 40px; border-radius: 5px; }")
         vl.addRow(self.btn_exe); layout.addWidget(vg)
-        
         layout.addStretch()
 
     def update_code_trace(self, title, code):
-        """Updates the Code Trace window with a premium formatted snippet."""
         current_text = self.trace_view.toHtml()
         header = f"<b style='color: #7aa2f7;'># {title}</b><br>"
         formatted_code = f"<span style='color: #9ece6a;'>{code.replace('\n', '<br>')}</span><br><br>"
-        # Prepend to show the latest at the top
         self.trace_view.setHtml(header + formatted_code + current_text)
 
     def init_menu_and_toolbar(self):
         m = self.menuBar(); f = m.addMenu("파일 (&F)")
         f.addAction("데이터 세트 로딩...").triggered.connect(self.load_data_async)
+        f.addSeparator()
+        f.addAction("세션 저장하기 (.dmx / .dmxz)").triggered.connect(self.save_session_ui)
+        f.addAction("세션 불러오기").triggered.connect(self.load_session_ui)
+        f.addSeparator()
         f.addAction("환경 설정...").triggered.connect(self.open_settings)
         f.addAction("종료").triggered.connect(self.close)
         
-        # NEW: Layout Preset Menu (Proving full ratio control)
         lp = m.addMenu("레이아웃 (&L)")
         lp.addAction("터미널 극대화 모드").triggered.connect(lambda: self.apply_layout_preset("Terminal"))
         lp.addAction("데이터 집중 모드").triggered.connect(lambda: self.apply_layout_preset("Data"))
@@ -284,251 +264,150 @@ class DataExplorerApp(QMainWindow):
 
         tb = QToolBar("Main Controls"); self.addToolBar(tb)
         btn_set = QPushButton("시스템 설정"); btn_set.clicked.connect(self.open_settings); tb.addWidget(btn_set)
-    
+
+    def collect_full_ui_state(self):
+        return {
+            "geometry": self.saveGeometry().toBase64().data().decode(),
+            "window_state": self.saveState().toBase64().data().decode(),
+            "central_tab_index": self.central_tabs.currentIndex(),
+            "engine_selection": self.combo_engine.currentText(),
+            "viz_lib": self.combo_lib.currentText(),
+            "viz_type": self.combo_viz.currentText(),
+            "settings": self.app_settings,
+            "status": self.status_label.text()
+        }
+
+    def restore_full_ui_state(self, state):
+        try:
+            if "geometry" in state: self.restoreGeometry(QByteArray.fromBase64(state["geometry"].encode()))
+            if "window_state" in state: self.restoreState(QByteArray.fromBase64(state["window_state"].encode()))
+            if "central_tab_index" in state: self.central_tabs.setCurrentIndex(int(state["central_tab_index"]))
+            if "engine_selection" in state: self.combo_engine.setCurrentText(state["engine_selection"])
+            if "viz_lib" in state: self.combo_lib.setCurrentText(state["viz_lib"])
+            if "viz_type" in state: self.combo_viz.setCurrentText(state["viz_type"])
+            if "settings" in state: self.app_settings.update(state["settings"])
+            if "status" in state: self.status_label.setText(state["status"])
+        except Exception as e:
+            print(f"UI Restore Error: {e}")
+
+    def save_session_ui(self):
+        p, filter_selected = QFileDialog.getSaveFileName(self, "세션 저장", "", "JSON 세션 (*.dmx);;압축 세션 (*.dmxz)")
+        if not p: return
+        is_compressed = ".dmxz" in filter_selected or p.endswith(".dmxz")
+        def _task(): return SessionManager.save_project(p, self.variables, self.collect_full_ui_state(), compress=is_compressed)
+        def _done(res):
+            if res[0]: self.status_label.setText(f"SUCCESS: {res[1]}")
+            else: QMessageBox.critical(self, "Error", res[1])
+        self.start_worker(_task, on_success=_done)
+
+    def load_session_ui(self):
+        p, _ = QFileDialog.getOpenFileName(self, "세션 로드", "", "Datamixer Session (*.dmx *.dmxz)")
+        if not p: return
+        def _task(): return SessionManager.load_project(p)
+        def _done(res):
+            if res[0]:
+                self.variables = res[1]["variables"]
+                if "df" in self.variables: self.df = self.variables["df"]
+                self.restore_full_ui_state(res[1]["ui_state"])
+                self.update_explorer(); self.update_table(); self.update_viz_combos(); self.jupyter_console.update_namespace()
+            else: QMessageBox.critical(self, "Error", res[1])
+        self.start_worker(_task, on_success=_done)
+
     def apply_layout_preset(self, mode):
-        """Dynamically manipulates internal window ratios for specific pro-tasks."""
-        w, h = self.width(), self.height()
-        if mode == "Terminal":
-            self.resizeDocks([self.console_dock], [int(h * 0.6)], Qt.Vertical) # 60% Terminal
-            self.resizeDocks([self.explorer_dock, self.control_dock], [250, 250], Qt.Horizontal)
-            self.status_label.setText("LAYOUT: 터미널 극대화 모드 가동 중")
-        elif mode == "Data":
-            self.resizeDocks([self.console_dock], [200], Qt.Vertical) # Minimal Terminal
-            self.resizeDocks([self.explorer_dock, self.control_dock], [150, 150], Qt.Horizontal) # Lean Sidebars
-            self.status_label.setText("LAYOUT: 데이터 시트 집중 모드 가동 중")
-        elif mode == "Balanced":
-            self.resizeDocks([self.console_dock], [int(h * 0.35)], Qt.Vertical)
-            self.resizeDocks([self.explorer_dock, self.control_dock], [300, 350], Qt.Horizontal)
-            self.status_label.setText("LAYOUT: 전문 분석가 균형 모드 동기화")
-        elif mode == "Explorer":
-            self.resizeDocks([self.explorer_dock], [500], Qt.Horizontal)
-            self.resizeDocks([self.control_dock], [500], Qt.Horizontal)
-            self.status_label.setText("LAYOUT: 사이드바 확장(변수 확인) 모드")
-        
-        self.update_code_trace("UI Layout Change", f"app.apply_layout_preset('{mode}') # Programmatic Window Resizing")
+        h = self.height()
+        if mode == "Terminal": self.resizeDocks([self.console_dock], [int(h * 0.6)], Qt.Vertical)
+        elif mode == "Data": self.resizeDocks([self.console_dock], [200], Qt.Vertical)
+        elif mode == "Balanced": self.resizeDocks([self.console_dock], [int(h * 0.35)], Qt.Vertical)
+        self.status_label.setText(f"LAYOUT: {mode} 모드 가동")
 
     def open_settings(self):
         d = SettingsDialog(self, self.app_settings)
         if d.exec(): 
             self.app_settings = d.get_settings()
             ThemeManager.apply_theme(self.app_settings["theme"])
-            self.status_label.setText("시스템 테마 동기화 완료.")
 
     def load_data_file_async(self, p):
-        notebook_dir = self.jupyter_server.notebook_dir
-        
         def _task():
             enc = detect_encoding_parallel(p) if p.endswith(".csv") else "utf-8"
             engine = "Polars" if "Polars" in self.combo_engine.currentText() else "Pandas"
-            s, df, m, code = DataEngine.load_data(p, enc, engine)
-            
-            if s and df is not None:
-                # Synchronize with Jupyter Server immediately in background
-                cache_path = os.path.join(notebook_dir, "last_loaded_data.parquet")
-                try:
-                    if hasattr(df, 'to_parquet'): # Pandas
-                        df.to_parquet(cache_path)
-                    elif hasattr(df, 'write_parquet'): # Polars
-                        df.write_parquet(cache_path)
-                except Exception as e:
-                    print(f"Background Sync Error: {e}")
-                    
-                return df, m, enc, code
-            return None
-            
+            return DataEngine.load_data(p, enc, engine)
         def _ok(res):
-            if not res: return
-            df, m, enc, code = res; self.df = df
-            self.variables[os.path.basename(p).replace(".","_")] = df
-            self.update_code_trace("Data Loading", code)
-            
-            # Fluid UI Update Phase
-            self.update_explorer()
-            self.update_table()
-            self.update_viz_combos()
-            self.display_data_mapping(df, enc)
-            self.jupyter_console.update_namespace()
-            
-            if self.app_settings["auto_analysis"]:
-                self.start_worker(lambda: IntelligenceCore.analyze_full_profile(df), on_success=self.on_intelligence_finished)
-                
-        self.start_worker(_task, on_success=_ok, on_status=lambda s: self.status_label.setText(f"LOADING: {s}"))
-
-    def apply_transform_async(self, op):
-        if self.is_data_empty(): return
-        params = {"column": self.combo_x.currentText()} # Use combo_x as target for Sort etc.
-        
-        def _task():
-            return DataEngine.apply_transformation(self.df, op, params)
-            
-        def _ok(res):
-            success, df, msg, code = res
+            success, df, m, code = res
             if success:
-                self.df = df
-                self.update_table(); self.update_viz_combos()
-                self.update_code_trace(f"Transformation: {op}", code)
-                self.status_label.setText(f"SUCCESS: {msg}")
-            else:
-                QMessageBox.warning(self, "Transformation Failed", msg)
-                
+                self.df = df; self.variables[os.path.basename(p).replace(".","_")] = df
+                self.update_explorer(); self.update_table(); self.update_viz_combos()
+                self.display_data_mapping(df, "auto"); self.jupyter_console.update_namespace()
+                self.update_code_trace("Data Loaded", code)
         self.start_worker(_task, on_success=_ok)
 
-    def on_intelligence_finished(self, r):
-        html = "<b>[AI Intelligence Hub V7 - 통계 리포트]</b><br><br>"
-        for i in r["insights"]: html += f"<span style='color: #7aa2f7;'>⚡</span> {i}<br><br>"
-        self.insight_output.setHtml(html)
-        if r["suggestions"]:
-            b = r["suggestions"][0]; self.combo_viz.setCurrentText(b["type"])
-            self.combo_x.setCurrentText(b["x"])
-            if b["y"]: self.combo_y.setCurrentText(b["y"])
-            self.generate_plot_dispatch()
+    def apply_transform_async(self, op):
+        if self.df.empty: return
+        def _task(): return DataEngine.apply_transformation(self.df, op, {"column": self.combo_x.currentText()})
+        def _ok(res):
+            if res[0]:
+                self.df = res[1]; self.update_table(); self.update_viz_combos()
+                self.update_code_trace(f"Transform: {op}", res[3])
+        self.start_worker(_task, on_success=_ok)
 
     def generate_plot_dispatch(self):
-        if self.is_data_empty(): return
-        dp = self.df
-        
-        # High-performance sampling for large data
-        if isinstance(self.df, pd.DataFrame):
-            if len(self.df) > 50000: dp = self.df.sample(50000)
-        elif isinstance(self.df, pl.DataFrame):
-            if self.df.height > 50000: dp = self.df.sample(n=50000)
-        
-        # Dynamic Engine Selection (Plotly Hub vs Matplotlib Canvas)
-        lib_mode = self.combo_lib.currentText()
+        if self.df.empty: return
         viz_type = self.combo_viz.currentText()
         x, y = self.combo_x.currentText(), self.combo_y.currentText()
-
-        def _on_plot_ready(res):
-            if not res[0]: return
-            self.browser.setUrl(QUrl.fromLocalFile(res[0]))
-            self.central_tabs.setCurrentIndex(1)
-            self.status_label.setText(f"SUCCESS: {res[1]}")
-
-        if "Plotly" in lib_mode:
-            task = lambda: VizManager.generate_plotly_html(dp, viz_type, x, y)
-            code_title = "Visualization (Plotly)"
-            code = f"import plotly.express as px\nfig = px.{viz_type_map.get(viz_type, 'plot')}(df, x='{x}', y='{y}')\nfig.show()"
+        if "Plotly" in self.combo_lib.currentText():
+            task = lambda: VizManager.generate_plotly_html(self.df, viz_type, x, y)
         else:
-            task = lambda: VizManager.generate_matplotlib_fig(dp, viz_type, x, y)
-            code_title = "Visualization (Matplotlib)"
-            code = f"import matplotlib.pyplot as plt\nimport seaborn as sns\nsns.{viz_type_map_sns.get(viz_type, 'plot')}(data=df, x='{x}', y='{y}')\nplt.show()"
-            
-        self.update_code_trace(code_title, code)
-        self.start_worker(task, on_success=_on_plot_ready)
+            task = lambda: VizManager.generate_matplotlib_fig(self.df, viz_type, x, y)
+        def _ok(res):
+            if res[0]: self.browser.setUrl(QUrl.fromLocalFile(res[0])); self.central_tabs.setCurrentIndex(1)
+        self.start_worker(task, on_success=_ok)
 
     def display_data_mapping(self, df, e):
-        info = f"<b>Encoding:</b> <span style='color: #9ece6a;'>{e}</span><br><b>Shape:</b> <span style='color: #7aa2f7;'>{df.shape[0]:,} x {df.shape[1]:,}</span><br><br><b>스키마 정보:</b><br>"
-        for c in df.columns:
-            dtype_str = str(df[c].dtype if hasattr(df[c], 'dtype') else 'Polars Type')
-            info += f"- {c}: <span style='color: #e0af68; font-weight: bold; font-size: 1.1em;'>{dtype_str}</span><br>"
-        self.lbl_data_info.setText(info)
+        self.lbl_data_info.setText(f"<b>Shape:</b> {df.shape[0]}x{df.shape[1]}<br>Columns: {', '.join(df.columns[:5])}...")
 
     def load_data_async(self):
-        p, _ = QFileDialog.getOpenFileName(self, "Import Data", "", "Data (*.csv *.xlsx *.parquet)"); 
+        p, _ = QFileDialog.getOpenFileName(self, "Import Data", "", "Data (*.csv *.xlsx *.parquet)")
         if p: self.load_data_file_async(p)
 
-    def on_variable_clicked(self, i): 
+    def on_variable_clicked(self, i):
         self.df = self.variables[i.text(0)]; self.update_table(); self.update_viz_combos()
 
-    def is_data_empty(self):
-        """Engine-agnostic check for empty dataframe."""
-        if isinstance(self.df, pd.DataFrame):
-            return self.df.empty
-        elif isinstance(self.df, pl.DataFrame):
-            return self.df.is_empty()
-        return True
-
-    def update_table(self): 
-        if self.is_data_empty(): return
-        # Logic: Models need Pandas for UI rendering speed and compatibility
+    def update_table(self):
+        if self.df.empty: return
         display_df = self.df if isinstance(self.df, pd.DataFrame) else self.df.to_pandas()
         model = PandasModel(display_df)
-        # Sync back changes to the main engine
         model.dataChanged.connect(self.on_data_edited_sync)
         self.table_view.setModel(model)
 
     def on_data_edited_sync(self):
-        """Synchronizes edits silently without interrupting the user's focus."""
         m = self.table_view.model()
-        if not m: return
-        
-        edited_df = m._data
-        if isinstance(self.df, pl.DataFrame):
-            self.df = pl.from_pandas(edited_df)
-        else:
-            self.df = edited_df 
-            
-        self.status_label.setText("SYSTEM: 데이터 실시간 동기화 중 (편집 모드)")
-        
-        # Re-trigger intelligence BUT WITHOUT auto-visual-jump
-        if self.app_settings["auto_analysis"]:
-            # Pass a silent flag or custom callback that won't trigger generate_plot_dispatch
-            self.start_worker(lambda: IntelligenceCore.analyze_full_profile(self.df), 
-                               on_success=self.on_intelligence_finished_silent)
+        if m: self.df = m._data if isinstance(self.df, pd.DataFrame) else pl.from_pandas(m._data)
 
-    def on_intelligence_finished_silent(self, r):
-        """Update terminal output but don't jump tabs or generate new plots during editing."""
-        html = "<b>[AI Intelligence Hub V7 - 통계 리포트 (실시간)]</b><br><br>"
-        for i in r["insights"]: html += f"<span style='color: #7aa2f7;'>⚡</span> {i}<br><br>"
-        self.insight_output.setHtml(html)
-        self.status_label.setText("SYSTEM: AI 분석 결과 최신화 완료 (편집 중)")
-
-    def update_viz_combos(self): 
+    def update_viz_combos(self):
         c = list(self.df.columns); self.combo_x.clear(); self.combo_y.clear(); self.combo_x.addItems(c); self.combo_y.addItems(c)
 
     def start_worker(self, f, *a, on_success=None, on_status=None, **k):
         w = GenericWorker(f, *a, **k)
         if on_success: w.result_ready.connect(on_success)
-        if on_status: w.status_update.connect(on_status)
         w.finished.connect(lambda: self.workers.remove(w))
         self.workers.append(w); w.start()
 
-    def update_explorer(self): 
+    def update_explorer(self):
         self.explorer_tree.clear()
         for v, d in self.variables.items():
-            dtype = "NumPy" if isinstance(d, np.ndarray) else ("Polars DF" if isinstance(d, pl.DataFrame) else "Pandas DF")
-            size = f"{d.shape[0]}x{d.shape[1]}" if hasattr(d, 'shape') else ("N/A")
-            mem = "Calculating..."
-            if hasattr(d, 'memory_usage'): 
-                mem = f"{d.memory_usage(deep=True).sum()/1024**2:.2f}MB"
-            elif isinstance(d, pl.DataFrame):
-                mem = f"{d.estimated_size() / 1024**2:.2f}MB"
-            self.explorer_tree.addTopLevelItem(QTreeWidgetItem([v, dtype, f"{size} ({mem})"]))
+            dtype = "Polars" if isinstance(d, pl.DataFrame) else "Pandas"
+            size = f"{d.shape[0]}x{d.shape[1]}"
+            self.explorer_tree.addTopLevelItem(QTreeWidgetItem([v, dtype, size]))
 
-    def dragEnterEvent(self, e): 
-        if e.mimeData().hasUrls(): 
-            e.accept()
-            self.status_label.setText("DROP: 데이터 파일을 놓으면 즉시 분석을 시작합니다.")
-            self.status_label.setStyleSheet("color: #7aa2f7; font-weight: bold;")
-        else: 
-            e.ignore()
-            
-    def dragLeaveEvent(self, e):
-        self.status_label.setText("SYSTEM: HEALTHY")
-        self.status_label.setStyleSheet("")
-
-    def dropEvent(self, e): 
-        self.status_label.setText("SYSTEM: PROCESSING...")
-        self.status_label.setStyleSheet("")
-        for u in e.mimeData().urls(): 
-            self.load_data_file_async(u.toLocalFile())
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasUrls(): e.accept()
+    def dropEvent(self, e):
+        for u in e.mimeData().urls(): self.load_data_file_async(u.toLocalFile())
     def toggle_grid_edit_mode(self):
         m = self.table_view.model()
-        if not m or not hasattr(m, 'read_only'): return
-        
-        m.read_only = not m.read_only
-        text = "MODE: EDIT-ENABLED" if not m.read_only else "MODE: READ-ONLY"
-        btn_text = "읽기 전용으로 전환" if not m.read_only else "쓰기 모드로 전환"
-        color = "#9ece6a" if not m.read_only else "#bb9af7"
-        
-        self.lbl_grid_mode.setText(text)
-        self.lbl_grid_mode.setStyleSheet(f"color: {color}; font-weight: bold; margin-left: 10px;")
-        self.btn_toggle_edit.setText(btn_text)
-        
-        # Force refresh for flags
-        self.table_view.viewport().update()
-        self.status_label.setText(f"SYSTEM: {text} - 데이터 직접 수정이 가능합니다.")
+        if m:
+            m.read_only = not m.read_only
+            self.lbl_grid_mode.setText("MODE: EDIT" if not m.read_only else "MODE: READ")
+            self.btn_toggle_edit.setText("읽기 전용" if not m.read_only else "쓰기 모드")
 
-# Helper Maps for Code Trace Generation
 viz_type_map = {"히스토그램": "histogram", "산점도": "scatter", "박스 플롯": "box", "선 그래프": "line", "바이올린 플롯": "violin", "바 차트": "bar", "파이 차트": "pie", "영역 차트": "area"}
 viz_type_map_sns = {"히스토그램": "histplot", "산점도": "scatterplot", "박스 플롯": "boxplot", "선 그래프": "lineplot", "바이올린 플롯": "violinplot", "바 차트": "barplot"}
