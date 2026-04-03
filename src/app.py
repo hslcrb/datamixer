@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QHeaderView, QTextEdit, QDockWidget, QTreeWidget,
     QTreeWidgetItem, QToolBar, QStatusBar, QFrame, QProgressBar
 )
-from PySide6.QtCore import Qt, QUrl, QSize, QByteArray, QTimer
+from PySide6.QtCore import Qt, QUrl, QSize, QByteArray, QTimer, Signal
 from PySide6.QtGui import QPalette, QColor, QAction, QFont
 
 # Internal imports
