@@ -472,10 +472,16 @@ class DataExplorerApp(QMainWindow):
         if self.is_data_empty(): return
         viz_type = self.combo_viz.currentText()
         x, y = self.combo_x.currentText(), self.combo_y.currentText()
+        theme = self.app_settings["theme"]
+        
+        # Sync browser background immediately
+        v_colors = ThemeManager.get_colors(theme)
+        self.browser.page().setBackgroundColor(QColor(v_colors["bg"]))
+        
         if "Plotly" in self.combo_lib.currentText():
-            task = lambda: VizManager.generate_plotly_html(self.df, viz_type, x, y)
+            task = lambda: VizManager.generate_plotly_html(self.df, viz_type, x, y, theme=theme)
         else:
-            task = lambda: VizManager.generate_matplotlib_fig(self.df, viz_type, x, y)
+            task = lambda: VizManager.generate_matplotlib_fig(self.df, viz_type, x, y, theme=theme)
         def _ok(res):
             if res[0]: self.browser.setUrl(QUrl.fromLocalFile(res[0])); self.central_tabs.setCurrentIndex(1)
         self.start_worker(task, on_success=_ok)
