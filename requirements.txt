@@ -13,3 +13,4 @@ polars
 scipy
 darkdetect
 jupyterlab
+textblob

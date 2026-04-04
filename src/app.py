@@ -460,6 +460,7 @@ class DataExplorerApp(QMainWindow):
             if res[0]:
                 self.df = res[1]; self.update_table(); self.update_viz_combos()
                 self.update_code_trace(f"Transform: {op}", res[3])
+                self.run_ai_analysis(self.df)
         self.start_worker(_task, on_success=_ok)
 
     def is_data_empty(self):
