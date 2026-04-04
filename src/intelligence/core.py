@@ -250,8 +250,13 @@ class IntelligenceCore:
         try:
             d = valid.describe()
             mean_, std_ = float(d['mean']), float(d['std'])
-            skew_ = float(valid.skew())
-            kurt_ = float(valid.kurtosis())
+            
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                skew_ = float(valid.skew())
+                kurt_ = float(valid.kurtosis())
+            
             cv = abs(std_ / mean_ * 100) if mean_ != 0 else 0
             report["insights"].append(
                 f"{_b('[수치]')} {_b(col)}: μ={_c(f'{mean_:.3g}','#73daca')} "
@@ -271,13 +276,21 @@ class IntelligenceCore:
             report["insights"].append(f"{_b('[경고]')} {_b(col)} 통계 실패: {type(e).__name__}")
         try:
             if len(valid) > 10:
-                z = np.abs(stats.zscore(valid.head(10_000)))
-                on = int(np.sum(z > 3.0))
-                if on > 3:
+                v_s = valid.head(10_000)
+                if v_s.std() < 1e-10:
                     report["insights"].append(
-                        f"{_b('[이상치]')} {_b(col)}: Z>3σ {_c(f'{on}개','#f7768e')} 감지.")
-                    report["suggestions"].append({"type": "박스 플롯", "x": col,
-                                                  "y": None, "desc": f"'{col}' 이상치"})
+                        f"{_b('[균일]')} {_b(col)}: 모든 값이 동일 — 이상치 없음.")
+                else:
+                    import warnings
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", RuntimeWarning)
+                        z = np.abs(stats.zscore(v_s))
+                    on = int(np.sum(z > 3.0))
+                    if on > 3:
+                        report["insights"].append(
+                            f"{_b('[이상치]')} {_b(col)}: Z>3σ {_c(f'{on}개','#f7768e')} 감지.")
+                        report["suggestions"].append({"type": "박스 플롯", "x": col,
+                                                      "y": None, "desc": f"'{col}' 이상치"})
         except Exception as e:
             report["insights"].append(f"{_b('[경고]')} {_b(col)} 이상치 실패: {type(e).__name__}")
 

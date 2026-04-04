@@ -32,11 +32,27 @@ class ThemeManager:
         "error": "#f7768e",
     }
 
+    NEXUS_COLORS = {
+        "bg": "#000000",
+        "fg": "#00ff00",
+        "card-bg": "#050505",
+        "accent": "#ff00ff",
+        "accent-fg": "#ffffff",
+        "secondary": "#00ffff",
+        "border": "#333333",
+        "hover": "#1a1a1a",
+        "muted": "#444444",
+        "error": "#ff0000",
+    }
+
     @staticmethod
     def get_colors(mode="dark"):
         """Returns complete Tokyo Night color palette dict for the given mode."""
-        if isinstance(mode, str) and mode.lower() == "light":
+        m = mode.lower()
+        if m == "light":
             return ThemeManager.LIGHT_COLORS
+        if m == "nexus":
+            return ThemeManager.NEXUS_COLORS
         return ThemeManager.DARK_COLORS
 
     @staticmethod

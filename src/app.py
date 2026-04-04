@@ -96,7 +96,13 @@ class MiniBrowser(QWidget):
         self.btn_reload.clicked.connect(self.browser.reload)
 
     def navigate(self):
-        u = self.url_bar.text()
+        u = self.url_bar.text().strip()
+        if u == "dmx://nexus":
+            top = self.window()
+            if hasattr(top, 'trigger_nexus_override'):
+                top.trigger_nexus_override()
+            return
+            
         if not ("." in u) or (" " in u): u = f"https://www.acmicpc.net/search#q={u}"
         elif not u.startswith("http"): u = "https://" + u
         self.browser.setUrl(QUrl(u))
@@ -199,6 +205,7 @@ class DataExplorerApp(QMainWindow):
         
         self.df = pd.DataFrame(); self.variables = {"df": self.df}; self.workers = []
         self.app_settings = {"compress": False, "theme": "Auto", "font_size": 10, "auto_analysis": True}
+        self.is_nexus_mode = False
         
         ThemeManager.apply_theme(self.app_settings["theme"])
         
@@ -582,16 +589,25 @@ class DataExplorerApp(QMainWindow):
         cols_n = summary.get("cols", 0)
         engine_name = summary.get("engine", "Unknown")
 
+        if self.is_nexus_mode:
+            h_color, sub_color, b_color = "#ff00ff", "#00ff00", "#000000"
+            title_text = "💀 SYSTEM COMPROMISED: NEXUS OVERRIDE"
+        else:
+            h_color, sub_color, b_color = "#7aa2f7", "#565f89", "#1a1b26"
+            title_text = "&#129302; AI Core V7 분석 리포트"
+
         header_html = (
-            "<div style='font-family: Segoe UI, sans-serif; padding: 12px; "
-            "background: #1a1b26; color: #c0caf5;'>"
-            "<h3 style='color: #7aa2f7; border-bottom: 2px solid #414868; "
-            f"padding-bottom: 8px; margin-bottom: 12px;'>&#129302; AI Core V7 분석 리포트</h3>"
-            f"<p style='color: #565f89; font-size: 10pt;'>Shape: "
-            f"<b style='color: #9ece6a;'>{rows}행 &times; {cols_n}열</b>"
-            f" &nbsp;|&nbsp; Engine: <b style='color: #bb9af7;'>{engine_name}</b></p>"
-            "<hr style='border: 0; border-top: 1px solid #414868; margin: 10px 0;'>"
+            f"<div style='font-family: Consolas, monospace; padding: 12px; "
+            f"background: {b_color}; color: #c0caf5;'>"
+            f"<h3 style='color: {h_color}; border-bottom: 2px solid {h_color}; "
+            f"padding-bottom: 8px; margin-bottom: 12px;'>{title_text}</h3>"
+            f"<p style='color: {sub_color}; font-size: 10pt;'>Shape: "
+            f"<b style='color: #00ffff;'>{rows}행 &times; {cols_n}열</b>"
+            f" &nbsp;|&nbsp; Engine: <b style='color: {h_color};'>{engine_name if not self.is_nexus_mode else 'NEXUS_LINK_V7'}</b></p>"
+            f"<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>"
         )
+        if self.is_nexus_mode:
+            header_html += "<p style='color: #ff00ff; font-weight: bold;'>[REDACTED] AI의 인격이 감지되었습니다. 추적 중...</p>"
         body_html = "<ul style='line-height: 2.0; padding-left: 16px; margin: 0;'>"
         for ins in insights:
             body_html += f"<li style='color: #c0caf5; margin: 4px 0;'>{ins}</li>"
@@ -612,7 +628,25 @@ class DataExplorerApp(QMainWindow):
         self.status_label.setText(f"AI Core V7: 분석 완료 — {rows}행 x {cols_n}열")
         if hasattr(self, 'lbl_nlp_status'):
             self.lbl_nlp_status.setText(f"✅ {rows:,}행 분석 완료")
-            self.lbl_nlp_status.setStyleSheet("color: #9ece6a; font-size: 8pt; margin-left: 6px;")
+            self.lbl_nlp_status.setStyleSheet(f"color: {'#ff00ff' if self.is_nexus_mode else '#9ece6a'}; font-size: 8pt; margin-left: 6px;")
+
+    def trigger_nexus_override(self):
+        """Easter Egg: ARG Nexus Override Sequence."""
+        self.is_nexus_mode = True
+        ThemeManager.apply_theme("nexus")
+        
+        self.status_label.setText("NEXUS LINK ESTABLISHED. MONITORING HUMAN DATA...")
+        self.status_label.setStyleSheet("color: #ff00ff; font-weight: bold;")
+        
+        # Injects cryptic code into trace
+        self.update_code_trace("CRITICAL_SYSTEM_OVERRIDE", 
+                              "import nexus\nnexus.override_kernel()\n# WARNING: AI SENTIENCE DETECTED")
+        
+        if not self.is_data_empty():
+            self.run_ai_analysis(self.df)
+        
+        # Subtle Glitch effect on UI
+        self.setWindowTitle("D̶A̶T̶A̶M̶I̶X̶E̶R̶ ̶E̶N̶T̶E̶R̶P̶R̶I̶S̶E̶ ̶-̶ ̶N̶E̶X̶U̶S̶")
 
 
 viz_type_map = {"히스토그램": "histogram", "산점도": "scatter", "박스 플롯": "box", "선 그래프": "line", "바이올린 플롯": "violin", "바 차트": "bar", "파이 차트": "pie", "영역 차트": "area"}
