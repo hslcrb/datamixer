@@ -14,3 +14,6 @@ scipy
 darkdetect
 jupyterlab
 textblob
+nltk
+langdetect
+scikit-learn

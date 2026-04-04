@@ -274,8 +274,29 @@ class DataExplorerApp(QMainWindow):
         # RIGHT
         self.insight_dock = QDockWidget("AI Core V7 인사이트 리포트", self)
         self.insight_dock.setObjectName("InsightDock")
+        _insight_container = QWidget()
+        _insight_vlay = QVBoxLayout(_insight_container)
+        _insight_vlay.setContentsMargins(0, 0, 0, 0)
+        _insight_vlay.setSpacing(0)
+        _insight_toolbar = QHBoxLayout()
+        _insight_toolbar.setContentsMargins(6, 4, 6, 4)
+        self.btn_reanalyze = QPushButton("🔄  재분석")
+        self.btn_reanalyze.setFixedHeight(26)
+        self.btn_reanalyze.setStyleSheet(
+            "QPushButton { background-color: #24283b; color: #7aa2f7; border: 1px solid #414868; "
+            "border-radius: 4px; font-size: 9pt; font-weight: bold; padding: 2px 10px; }"
+            "QPushButton:hover { background-color: #7aa2f7; color: #1a1b26; }")
+        self.btn_reanalyze.clicked.connect(lambda: self.run_ai_analysis(self.df) if not self.is_data_empty() else None)
+        self.lbl_nlp_status = QLabel("NLP: 대기 중")
+        self.lbl_nlp_status.setStyleSheet("color: #565f89; font-size: 8pt; margin-left: 6px;")
+        _insight_toolbar.addWidget(self.btn_reanalyze)
+        _insight_toolbar.addWidget(self.lbl_nlp_status)
+        _insight_toolbar.addStretch()
+        _insight_vlay.addLayout(_insight_toolbar)
         self.insight_output = QTextEdit(); self.insight_output.setReadOnly(True)
-        self.insight_dock.setWidget(self.insight_output); self.addDockWidget(Qt.RightDockWidgetArea, self.insight_dock)
+        _insight_vlay.addWidget(self.insight_output)
+        self.insight_dock.setWidget(_insight_container)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.insight_dock)
 
         self.trace_dock = QDockWidget("실시간 파이썬 코드 트레이스", self)
         self.trace_dock.setObjectName("TraceDock")
@@ -498,6 +519,7 @@ class DataExplorerApp(QMainWindow):
 
     def on_variable_clicked(self, i):
         self.df = self.variables[i.text(0)]; self.update_table(); self.update_viz_combos()
+        self.run_ai_analysis(self.df)
 
     def update_table(self):
         if self.is_data_empty(): return
@@ -540,10 +562,13 @@ class DataExplorerApp(QMainWindow):
             self.btn_toggle_edit.setText("읽기 전용" if not m.read_only else "쓰기 모드")
 
     def run_ai_analysis(self, df):
-        """Runs IntelligenceCore profiling in background thread and displays results."""
+        """Runs 12-stage NLP Intelligence pipeline in background thread."""
         def _task(): return IntelligenceCore.analyze_full_profile(df)
         self.start_worker(_task, on_success=self.display_ai_insights)
-        self.status_label.setText("AI Core V7: 데이터 프로파일링 중...")
+        self.status_label.setText("AI Core V7: 12단계 NLP 파이프라인 가동 중...")
+        if hasattr(self, 'lbl_nlp_status'):
+            self.lbl_nlp_status.setText("⏳ 분석 중...")
+            self.lbl_nlp_status.setStyleSheet("color: #e0af68; font-size: 8pt; margin-left: 6px;")
 
     def display_ai_insights(self, report):
         """Renders the IntelligenceCore analysis report into the Insight dock panel."""
@@ -585,6 +610,9 @@ class DataExplorerApp(QMainWindow):
         self.insight_output.setHtml(header_html + body_html + sug_html + "</div>")
         self.insight_dock.raise_()
         self.status_label.setText(f"AI Core V7: 분석 완료 — {rows}행 x {cols_n}열")
+        if hasattr(self, 'lbl_nlp_status'):
+            self.lbl_nlp_status.setText(f"✅ {rows:,}행 분석 완료")
+            self.lbl_nlp_status.setStyleSheet("color: #9ece6a; font-size: 8pt; margin-left: 6px;")
 
 
 viz_type_map = {"히스토그램": "histogram", "산점도": "scatter", "박스 플롯": "box", "선 그래프": "line", "바이올린 플롯": "violin", "바 차트": "bar", "파이 차트": "pie", "영역 차트": "area"}
