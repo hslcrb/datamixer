@@ -8,7 +8,7 @@ import time
 
 class JupyterServerManager:
     """Manages an external Jupyter Lab server with robust lifecycle and port clearing."""
-    def __init__(self, port=18888, notebook_dir="notebook_core"):
+    def __init__(self, port=18888, notebook_dir="notebooks"):
         self.port = port
         self.notebook_dir = notebook_dir
         self.process = None

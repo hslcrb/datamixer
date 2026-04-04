@@ -116,16 +116,16 @@ class AdvancedOpsDialog(QDialog):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(30, 30, 30, 30)
         self.setStyleSheet("""
-            QDialog { background-color: var(--bg); color: var(--fg); }
-            QLabel#HeaderTitle { font-size: 24pt; font-weight: 800; color: var(--accent); margin-bottom: 5px; }
-            QLabel#SubTitle { font-size: 11pt; color: var(--muted); margin-bottom: 30px; }
-            QFrame.Card { background-color: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); padding: 15px; }
-            QFrame.Card:hover { border: 1px solid var(--accent); }
-            QLabel.CardTitle { font-size: 13pt; font-weight: bold; color: var(--secondary); border-bottom: 2px solid var(--secondary); padding-bottom: 8px; margin-bottom: 12px; }
-            QLabel.CardDesc { font-size: 9pt; color: var(--muted); margin-bottom: 15px; }
-            QPushButton.OpBtn { background-color: var(--bg); color: var(--fg); border: 1px solid var(--border); padding: 12px; border-radius: 6px; font-weight: bold; text-align: left; }
-            QPushButton.OpBtn:hover { background-color: var(--accent); color: var(--accent-fg); border: 1px solid var(--accent); }
-            QComboBox { background-color: var(--bg); color: var(--fg); border: 1px solid var(--border); padding: 8px; border-radius: 4px; min-height: 30px; }
+            QDialog { background-color: #1a1b26; color: #c0caf5; }
+            QLabel#HeaderTitle { font-size: 24pt; font-weight: 800; color: #7aa2f7; margin-bottom: 5px; }
+            QLabel#SubTitle { font-size: 11pt; color: #565f89; margin-bottom: 30px; }
+            QFrame[class="Card"] { background-color: #24283b; border-radius: 12px; border: 1px solid #414868; padding: 15px; }
+            QFrame[class="Card"]:hover { border: 1px solid #7aa2f7; }
+            QLabel[class="CardTitle"] { font-size: 13pt; font-weight: bold; color: #bb9af7; border-bottom: 2px solid #bb9af7; padding-bottom: 8px; margin-bottom: 12px; }
+            QLabel[class="CardDesc"] { font-size: 9pt; color: #565f89; margin-bottom: 15px; }
+            QPushButton[class="OpBtn"] { background-color: #1a1b26; color: #c0caf5; border: 1px solid #414868; padding: 12px; border-radius: 6px; font-weight: bold; text-align: left; }
+            QPushButton[class="OpBtn"]:hover { background-color: #7aa2f7; color: #1a1b26; border: 1px solid #7aa2f7; }
+            QComboBox { background-color: #1a1b26; color: #c0caf5; border: 1px solid #414868; padding: 8px; border-radius: 4px; min-height: 30px; }
         """)
 
         # Header Section
@@ -171,7 +171,7 @@ class AdvancedOpsDialog(QDialog):
         c4 = QFrame(); c4.setProperty("class", "Card"); l4 = QVBoxLayout(c4)
         lbl4 = QLabel("🔗 FEATURE FUSION"); lbl4.setProperty("class", "CardTitle"); l4.addWidget(lbl4)
         lbl4_desc = QLabel("범주형 데이터를 수치적 벡터로 전환하여 기능을 확장합니다."); lbl4_desc.setProperty("class", "CardDesc"); l4.addWidget(lbl4_desc)
-        ops4 = [("🌓 원-핫 인코딩 (One-Hot Dummy)", "One-Hot Encoding"), ("🏷️ 라벨 인코딩 (Label Labeling)", "One-Hot Encoding")]
+        ops4 = [("🌓 원-핫 인코딩 (One-Hot Dummy)", "One-Hot Encoding"), ("🏷️ 라벨 인코딩 (Label Encoding)", "Label Encoding")]
         for label, op in ops4:
             btn = QPushButton(f"  {label}"); btn.setProperty("class", "OpBtn"); btn.clicked.connect(lambda _, o=op: self.finalize(o))
             l4.addWidget(btn)
@@ -181,7 +181,7 @@ class AdvancedOpsDialog(QDialog):
         
         # Footer
         footer = QLabel("<b>경고: 모든 조작은 원본 데이터의 물리적 구조를 변경하며, 파이썬 코드 트레이스에 실시간 기록됩니다.</b>"); footer.setAlignment(Qt.AlignCenter)
-        footer.setStyleSheet("color: var(--error); font-size: 10pt; margin-top: 25px;")
+        footer.setStyleSheet("color: #f7768e; font-size: 10pt; margin-top: 25px;")
         main_layout.addWidget(footer)
 
     def finalize(self, op):
@@ -224,7 +224,7 @@ class DataExplorerApp(QMainWindow):
         self.view_tab = QWidget(); v1 = QVBoxLayout(self.view_tab)
         self.grid_header_layout = QHBoxLayout()
         self.lbl_grid_mode = QLabel("MODE: READ-ONLY")
-        self.lbl_grid_mode.setStyleSheet("color: var(--secondary); font-weight: bold; margin-left: 10px;")
+        self.lbl_grid_mode.setStyleSheet("color: #bb9af7; font-weight: bold; margin-left: 10px;")
         self.btn_toggle_edit = QPushButton("쓰기 모드로 전환"); self.btn_toggle_edit.setFixedWidth(150)
         self.btn_toggle_edit.clicked.connect(self.toggle_grid_edit_mode)
         self.grid_header_layout.addWidget(self.lbl_grid_mode); self.grid_header_layout.addStretch()
@@ -280,7 +280,7 @@ class DataExplorerApp(QMainWindow):
         self.trace_dock = QDockWidget("실시간 파이썬 코드 트레이스", self)
         self.trace_dock.setObjectName("TraceDock")
         self.trace_view = QTextEdit(); self.trace_view.setReadOnly(True)
-        self.trace_view.setStyleSheet("QTextEdit { background-color: var(--bg); color: var(--fg); font-family: 'Courier New', monospace; font-size: 11pt; border: none; }")
+        self.trace_view.setStyleSheet("QTextEdit { background-color: #1a1b26; color: #c0caf5; font-family: 'Courier New', monospace; font-size: 11pt; border: none; }")
         self.trace_dock.setWidget(self.trace_view); self.addDockWidget(Qt.RightDockWidgetArea, self.trace_dock)
         self.tabifyDockWidget(self.insight_dock, self.trace_dock)
 
@@ -309,9 +309,9 @@ class DataExplorerApp(QMainWindow):
         tg = QGroupBox(); tl = QVBoxLayout(tg)
         header_layout = QHBoxLayout()
         header_label = QLabel("고급 데이터 전처리")
-        header_label.setStyleSheet("font-weight: bold; color: var(--accent);")
+        header_label.setStyleSheet("font-weight: bold; color: #7aa2f7;")
         self.btn_more_ops = QPushButton("더보기 +")
-        self.btn_more_ops.setFixedWidth(80); self.btn_more_ops.setStyleSheet("QPushButton { height: 22px; font-size: 8pt; background-color: var(--border); padding: 2px; }")
+        self.btn_more_ops.setFixedWidth(80); self.btn_more_ops.setStyleSheet("QPushButton { height: 22px; font-size: 8pt; background-color: #414868; padding: 2px; }")
         self.btn_more_ops.clicked.connect(self.open_advanced_ops)
         header_layout.addWidget(header_label); header_layout.addStretch(); header_layout.addWidget(self.btn_more_ops)
         tl.addLayout(header_layout)
@@ -320,7 +320,7 @@ class DataExplorerApp(QMainWindow):
         self.btn_drop_null = QPushButton("결측치 제거"); self.btn_mean_fill = QPushButton("평균값 채우기")
         self.btn_unique = QPushButton("중복 제거"); self.btn_sort = QPushButton("칼럼 정렬")
         for btn in [self.btn_drop_null, self.btn_mean_fill, self.btn_unique, self.btn_sort]:
-            btn.setStyleSheet("QPushButton { background-color: var(--card-bg); color: var(--fg); height: 30px; }")
+            btn.setStyleSheet("QPushButton { background-color: #24283b; color: #c0caf5; height: 30px; }")
             grid_layout.addWidget(btn)
         tl.addLayout(grid_layout)
         self.btn_drop_null.clicked.connect(lambda: self.apply_transform_async("Drop Nulls"))
@@ -336,7 +336,7 @@ class DataExplorerApp(QMainWindow):
         vl.addRow("그래프 종류:", self.combo_viz); self.combo_x = QComboBox(); self.combo_y = QComboBox()
         vl.addRow("X축 칼럼:", self.combo_x); vl.addRow("Y축 칼럼:", self.combo_y)
         self.btn_exe = QPushButton("데이터 엔진 가동"); self.btn_exe.clicked.connect(self.generate_plot_dispatch)
-        self.btn_exe.setStyleSheet("QPushButton { background-color: var(--accent); color: var(--accent-fg); font-weight: bold; height: 40px; border-radius: 5px; }")
+        self.btn_exe.setStyleSheet("QPushButton { background-color: #7aa2f7; color: #1a1b26; font-weight: bold; height: 40px; border-radius: 5px; }")
         vl.addRow(self.btn_exe); layout.addWidget(vg)
         layout.addStretch()
 
@@ -350,8 +350,8 @@ class DataExplorerApp(QMainWindow):
 
     def update_code_trace(self, title, code):
         current_text = self.trace_view.toHtml()
-        header = f"<b style='color: var(--accent);'># {title}</b><br>"
-        formatted_code = f"<span style='color: var(--secondary);'>{code.replace('\n', '<br>')}</span><br><br>"
+        header = f"<b style='color: #7aa2f7;'># {title}</b><br>"
+        formatted_code = f"<span style='color: #bb9af7;'>{code.replace(chr(10), '<br>')}</span><br><br>"
         self.trace_view.setHtml(header + formatted_code + current_text)
 
     def init_menu_and_toolbar(self):
@@ -447,6 +447,7 @@ class DataExplorerApp(QMainWindow):
                 self.update_explorer(); self.update_table(); self.update_viz_combos()
                 self.display_data_mapping(df, "auto"); self.jupyter_console.update_namespace()
                 self.update_code_trace("Data Loaded", code)
+                self.run_ai_analysis(df)
         self.start_worker(_task, on_success=_ok)
 
     def apply_transform_async(self, op, params=None):
@@ -536,6 +537,54 @@ class DataExplorerApp(QMainWindow):
             m.read_only = not m.read_only
             self.lbl_grid_mode.setText("MODE: EDIT" if not m.read_only else "MODE: READ")
             self.btn_toggle_edit.setText("읽기 전용" if not m.read_only else "쓰기 모드")
+
+    def run_ai_analysis(self, df):
+        """Runs IntelligenceCore profiling in background thread and displays results."""
+        def _task(): return IntelligenceCore.analyze_full_profile(df)
+        self.start_worker(_task, on_success=self.display_ai_insights)
+        self.status_label.setText("AI Core V7: 데이터 프로파일링 중...")
+
+    def display_ai_insights(self, report):
+        """Renders the IntelligenceCore analysis report into the Insight dock panel."""
+        if not report or "insights" not in report:
+            return
+        summary = report.get("summary", {})
+        insights = report.get("insights", [])
+        suggestions = report.get("suggestions", [])
+
+        rows = summary.get("rows", 0)
+        cols_n = summary.get("cols", 0)
+        engine_name = summary.get("engine", "Unknown")
+
+        header_html = (
+            "<div style='font-family: Segoe UI, sans-serif; padding: 12px; "
+            "background: #1a1b26; color: #c0caf5;'>"
+            "<h3 style='color: #7aa2f7; border-bottom: 2px solid #414868; "
+            f"padding-bottom: 8px; margin-bottom: 12px;'>&#129302; AI Core V7 분석 리포트</h3>"
+            f"<p style='color: #565f89; font-size: 10pt;'>Shape: "
+            f"<b style='color: #9ece6a;'>{rows}행 &times; {cols_n}열</b>"
+            f" &nbsp;|&nbsp; Engine: <b style='color: #bb9af7;'>{engine_name}</b></p>"
+            "<hr style='border: 0; border-top: 1px solid #414868; margin: 10px 0;'>"
+        )
+        body_html = "<ul style='line-height: 2.0; padding-left: 16px; margin: 0;'>"
+        for ins in insights:
+            body_html += f"<li style='color: #c0caf5; margin: 4px 0;'>{ins}</li>"
+        body_html += "</ul>"
+
+        sug_html = ""
+        if suggestions:
+            sug_html = ("<h4 style='color: #e0af68; margin-top: 16px; margin-bottom: 8px;'>"
+                        "&#128161; 추천 시각화</h4>"
+                        "<ul style='line-height: 1.8; padding-left: 16px;'>")
+            for s in suggestions:
+                sug_html += (f"<li style='color: #73daca;'><b>{s.get('type','')}</b> "
+                             f"&mdash; <span style='color:#565f89;'>{s.get('desc','')}</span></li>")
+            sug_html += "</ul>"
+
+        self.insight_output.setHtml(header_html + body_html + sug_html + "</div>")
+        self.insight_dock.raise_()
+        self.status_label.setText(f"AI Core V7: 분석 완료 — {rows}행 x {cols_n}열")
+
 
 viz_type_map = {"히스토그램": "histogram", "산점도": "scatter", "박스 플롯": "box", "선 그래프": "line", "바이올린 플롯": "violin", "바 차트": "bar", "파이 차트": "pie", "영역 차트": "area"}
 viz_type_map_sns = {"히스토그램": "histplot", "산점도": "scatterplot", "박스 플롯": "boxplot", "선 그래프": "lineplot", "바이올린 플롯": "violinplot", "바 차트": "barplot"}

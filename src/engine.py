@@ -2,6 +2,7 @@ import pandas as pd
 import polars as pl
 import os
 import numpy as np
+import math
 
 class DataEngine:
     """Manages high-performance data processing with Advanced Core Transformation & Code Trace support."""
@@ -116,15 +117,26 @@ class DataEngine:
                     code = f"df = pd.get_dummies(df, columns=['{col}'])"
                 return True, res, f"'{col}' 원-핫 인코딩 완료", code
 
+            elif op_type == "Label Encoding":
+                if not col: return False, df, "대상 칼럼을 선택하세요.", ""
+                if is_polars:
+                    res = df.with_columns([pl.col(col).cast(pl.Categorical).to_physical().alias(col + "_encoded")])
+                    code = f"df = df.with_columns([pl.col('{col}').cast(pl.Categorical).to_physical().alias('{col}_encoded')])"
+                else:
+                    res = df.copy()
+                    res[col + "_encoded"], _ = pd.factorize(df[col])
+                    code = f"df['{col}_encoded'], _ = pd.factorize(df['{col}'])"
+                return True, res, f"'{col}' 라벨 인코딩 완료", code
+
             elif op_type == "Log Transform":
                 if not col: return False, df, "대상 칼럼을 선택하세요.", ""
                 if is_polars:
-                    res = df.with_columns([pl.col(col).log()])
-                    code = f"df = df.with_columns([pl.col('{col}').log()])"
+                    res = df.with_columns([(pl.col(col) + 1.0).log(base=math.e)])
+                    code = f"import math\ndf = df.with_columns([(pl.col('{col}') + 1.0).log(base=math.e)])"
                 else:
                     res = df.copy(); res[col] = np.log1p(df[col])
                     code = f"import numpy as np\ndf['{col}'] = np.log1p(df['{col}'])"
-                return True, res, f"'{col}' 로그 변환 완료", code
+                return True, res, f"'{col}' 로그 변환 완료 (log1p)", code
 
             elif op_type == "Sort":
                 if not col: return False, df, "칼럼이 선택되지 않았습니다.", ""
