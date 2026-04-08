@@ -194,13 +194,13 @@ class IntelligenceCore:
 
         # Global null summary
         bad = {c: int(v) for c, v in nulls.items() if isinstance(v, (int, float)) and v > 0}
-            if bad:
-                worst = max(bad, key=lambda c: bad[c])
-                wpct = bad[worst] / rows * 100
-                report["insights"].append(
-                    f"{_b('[결측 경고]')} {_c(f'{len(bad)}개 컬럼', c_error)}에 결측 존재. "
-                    f"최다: {_b(worst)} ({_c(f'{wpct:.1f}%', c_error)})"
-                )
+        if bad:
+            worst = max(bad, key=lambda c: bad[c])
+            wpct = bad[worst] / rows * 100
+            report["insights"].append(
+                f"{_b('[결측 경고]')} {_c(f'{len(bad)}개 컬럼', c_error)}에 결측 존재. "
+                f"최다: {_b(worst)} ({_c(f'{wpct:.1f}%', c_error)})"
+            )
 
         # Per-column
         for col in pf.columns:

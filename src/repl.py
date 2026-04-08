@@ -28,21 +28,28 @@ class JupyterConsoleManager:
         mode = self.app.app_settings.get("theme", "dark").lower()
         colors = ThemeManager.get_colors(mode)
         
-        # Base Widget Styling
+        # Base Widget Styling - Explicitly set background and text color
         self.widget.setStyleSheet(f"""
             QWidget {{ background-color: {colors["bg"]}; color: {colors["fg"]}; border: none; font-family: 'Consolas', 'Courier New', monospace; font-size: 10pt; }}
-            QPlainTextEdit {{ background-color: {colors["bg"]} !important; color: {colors["fg"]} !important; }}
-            RichJupyterWidget {{ border: none; background-color: {colors["bg"]}; }}
+            QPlainTextEdit {{ background-color: {colors["bg"]} !important; color: {colors["fg"]} !important; selection-background-color: {colors["accent"]}; selection-color: {colors["accent-fg"]}; }}
+            RichJupyterWidget {{ border: none; background-color: {colors["bg"]}; color: {colors["fg"]}; }}
         """)
         
         # Internal Syntax & Prompt Styling
-        self.widget.set_default_style('light' if mode == 'light' else 'linux')
+        # Using 'default' for light mode and 'monokai' or 'linux' for dark mode
+        self.widget.set_default_style('default' if mode == 'light' else 'linux')
+        
+        # Override styles for prompts and inputs
         self.widget.style_sheet = f"""
             .ipython {{ color: {colors["secondary"]}; }}
             .input_prompt {{ color: {colors["accent"]}; font-weight: bold; }}
             .output_prompt {{ color: {colors["secondary"]}; font-weight: bold; }}
             .in_prompt {{ color: {colors["accent"]}; }}
             .out_prompt {{ color: {colors["secondary"]}; }}
+            /* Ensure the actual text being typed has the correct foreground color */
+            .input {{ color: {colors["fg"]}; }}
+            .output {{ color: {colors["fg"]}; }}
+            .error {{ color: {colors["error"]}; }}
         """
 
     def inject_full_stack(self):
