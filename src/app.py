@@ -252,8 +252,12 @@ class DataExplorerApp(QMainWindow):
         self.central_tabs.addTab(self.viz_tab, "분석 리포트")
         
         self.jupyter_tab = QWidget(); v3 = QVBoxLayout(self.jupyter_tab); self.wb_browser = QWebEngineView()
-        QTimer.singleShot(1500, lambda: self.wb_browser.setUrl(QUrl(self.jupyter_server.url)))
+        # Increased delay to 3000ms and added a fallback reload mechanism
+        QTimer.singleShot(3000, lambda: self.wb_browser.setUrl(QUrl(self.jupyter_server.url)))
         v3.addWidget(self.wb_browser); self.central_tabs.addTab(self.jupyter_tab, "주피터 주크벤치")
+        
+        # Reload jupyter if the tab is clicked to ensure it's loaded
+        self.central_tabs.currentChanged.connect(self.on_tab_changed)
         self.browser_tab = MiniBrowser(); self.central_tabs.addTab(self.browser_tab, "데이터 브라우저")
         
         self.setup_docks()
@@ -318,6 +322,14 @@ class DataExplorerApp(QMainWindow):
         self.console_dock.setWidget(self.jupyter_console.widget); self.addDockWidget(Qt.BottomDockWidgetArea, self.console_dock)
         
         QTimer.singleShot(500, lambda: self.resize_docks())
+
+    def on_tab_changed(self, index):
+        """Handle tab change events, e.g., refreshing Jupyter when selected."""
+        if self.central_tabs.tabText(index) == "주피터 주크벤치":
+            if self.wb_browser.url().isEmpty() or self.wb_browser.url().toString() == "about:blank":
+                self.wb_browser.setUrl(QUrl(self.jupyter_server.url))
+            else:
+                self.wb_browser.reload()
 
     def resize_docks(self):
         self.resizeDocks([self.explorer_dock], [300], Qt.Horizontal)
