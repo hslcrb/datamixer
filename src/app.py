@@ -537,7 +537,19 @@ class DataExplorerApp(QMainWindow):
 
     def on_data_edited_sync(self):
         m = self.table_view.model()
-        if m: self.df = m._data if isinstance(self.df, pd.DataFrame) else pl.from_pandas(m._data)
+        if not m: return
+        
+        # 엔진별 효율적 데이터 동기화
+        if isinstance(self.df, pd.DataFrame):
+            self.df = m._data
+        elif isinstance(self.df, pl.DataFrame):
+            # Polars인 경우 변경된 부분만 반영하기 위해 전체 변환을 피하고 싶지만, 
+            # PandasModel이 내부적으로 Pandas를 쓰므로 최소한의 변환만 수행
+            self.df = pl.from_pandas(m._data)
+        
+        # 변수 매니저와 동기화
+        self.variables["df"] = self.df
+        self.update_explorer()
 
     def update_viz_combos(self):
         c = list(self.df.columns); self.combo_x.clear(); self.combo_y.clear(); self.combo_x.addItems(c); self.combo_y.addItems(c)
@@ -570,7 +582,8 @@ class DataExplorerApp(QMainWindow):
 
     def run_ai_analysis(self, df):
         """Runs 12-stage NLP Intelligence pipeline in background thread."""
-        def _task(): return IntelligenceCore.analyze_full_profile(df)
+        theme = self.app_settings.get("theme", "dark")
+        def _task(): return IntelligenceCore.analyze_full_profile(df, theme=theme)
         self.start_worker(_task, on_success=self.display_ai_insights)
         self.status_label.setText("AI Core V7: 12단계 NLP 파이프라인 가동 중...")
         if hasattr(self, 'lbl_nlp_status'):

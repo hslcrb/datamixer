@@ -139,8 +139,18 @@ class IntelligenceCore:
     """Neuro-Level NLP + Statistical Profiling — AI Core V7."""
 
     @staticmethod
-    def analyze_full_profile(df):
+    def analyze_full_profile(df, theme="dark"):
         is_pl = isinstance(df, pl.DataFrame)
+        is_dark = theme.lower() != "light"
+        
+        # Theme-aware colors
+        c_accent = "#7aa2f7" if is_dark else "#2e7de9"
+        c_secondary = "#bb9af7" if is_dark else "#9854f1"
+        c_success = "#9ece6a" if is_dark else "#485e30"
+        c_error = "#f7768e" if is_dark else "#f7768e"
+        c_muted = "#565f89" if is_dark else "#8c8fa1"
+        c_warning = "#e0af68" if is_dark else "#8c6c3e"
+
         if is_pl:
             rows, cn = df.height, len(df.columns)
             eng = "Polars [Fast]"
@@ -156,7 +166,7 @@ class IntelligenceCore:
 
         null_tot = int(sum(v for v in nulls.values() if isinstance(v, (int, float))))
         nlp_caps = " · ".join(
-            _c(n + "✓", "#9ece6a") if ok else _c(n + "✗", "#565f89")
+            _c(n + "✓", c_success) if ok else _c(n + "✗", c_muted)
             for n, ok in [("TextBlob", F['tb']), ("langdetect", F['ld']),
                           ("sklearn", F['sk']), ("NLTK", F['nltk'])]
         )
@@ -164,9 +174,9 @@ class IntelligenceCore:
         report = {
             "summary": {"rows": rows, "cols": cn, "engine": eng, "null_total": null_tot},
             "insights": [
-                f"{_b('[시스템]')} 엔진: {_c(eng, '#bb9af7')} | {nlp_caps}",
-                f"{_b('[개요]')} {_c(f'{rows:,}행', '#9ece6a')} × {_c(f'{cn}열', '#9ece6a')} | "
-                f"총 결측: {_c(str(null_tot), '#f7768e')}개",
+                f"{_b('[시스템]')} 엔진: {_c(eng, c_secondary)} | {nlp_caps}",
+                f"{_b('[개요]')} {_c(f'{rows:,}행', c_success)} × {_c(f'{cn}열', c_success)} | "
+                f"총 결측: {_c(str(null_tot), c_error)}개",
             ],
             "suggestions": [],
         }
@@ -184,13 +194,13 @@ class IntelligenceCore:
 
         # Global null summary
         bad = {c: int(v) for c, v in nulls.items() if isinstance(v, (int, float)) and v > 0}
-        if bad:
-            worst = max(bad, key=lambda c: bad[c])
-            wpct = bad[worst] / rows * 100
-            report["insights"].append(
-                f"{_b('[결측 경고]')} {_c(f'{len(bad)}개 컬럼', '#f7768e')}에 결측 존재. "
-                f"최다: {_b(worst)} ({_c(f'{wpct:.1f}%', '#f7768e')})"
-            )
+            if bad:
+                worst = max(bad, key=lambda c: bad[c])
+                wpct = bad[worst] / rows * 100
+                report["insights"].append(
+                    f"{_b('[결측 경고]')} {_c(f'{len(bad)}개 컬럼', c_error)}에 결측 존재. "
+                    f"최다: {_b(worst)} ({_c(f'{wpct:.1f}%', c_error)})"
+                )
 
         # Per-column
         for col in pf.columns:
@@ -201,11 +211,11 @@ class IntelligenceCore:
 
             lbl, ico = _sem(col)
             if lbl:
-                report["insights"].append(f"{_b('[컬럼 의미]')} {ico} {_b(col)} → {_c(lbl, '#e0af68')}")
+                report["insights"].append(f"{_b('[컬럼 의미]')} {ico} {_b(col)} → {_c(lbl, c_warning)}")
 
             if ur > 0.98 and nv > 10:
                 report["insights"].append(
-                    f"{_b('[구조]')} {_b(col)}: PK 추정 ({_c(f'{ur*100:.1f}%', '#9ece6a')} unique)")
+                    f"{_b('[구조]')} {_b(col)}: PK 추정 ({_c(f'{ur*100:.1f}%', c_success)} unique)")
 
             if col in nums.columns:
                 IntelligenceCore._num(col, s, nulls, rows, report)
@@ -223,7 +233,7 @@ class IntelligenceCore:
                             c1, c2 = corr.columns[i], corr.columns[j]
                             report["insights"].append(
                                 f"{_b('[상관]')} {_b(c1)} ↔ {_b(c2)}: "
-                                f"{_c(f'{v:.2f}', '#7aa2f7')} — 다중공선성 위험.")
+                                f"{_c(f'{v:.2f}', c_accent)} — 다중공선성 위험.")
                             report["suggestions"].append({"type": "산점도", "x": c1, "y": c2,
                                                           "desc": f"'{c1}' vs '{c2}' 강상관"})
             except Exception as e:
