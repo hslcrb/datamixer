@@ -75,7 +75,9 @@ class JupyterServerManager:
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+            stdin=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            close_fds=True if os.name != "nt" else False
         )
         atexit.register(self.stop)
         print(f"Jupyter Node V7: Online at {self.port} (Theme: {target_theme})")
